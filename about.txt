@@ -1,0 +1,41 @@
+make webgl voxel thing
+
+would like to use for 3sphere/glomeworld project.
+could have 8-cell voxel grid and project onto 3sphere, in which case optimisation to join neighbouring squares into fewer rectangles (similar to run length encoding (RLE)) would work (since straight lines/great circles project to straight lines in viewport)
+however, would like to use square mapped onto duocylinder, because this is how worlds are in project. RLE style optimisation won't work, so try to do without.
+
+can test this without use of projection onto 3-sphere.
+
+basically want a voxel engine without RLE optimisation.
+
+1st version does not require
+smoothed voxels,
+realtime updates (for destructible terrain)
+
+1st version/mvp:
+create some 3d data, display slices in canvas
+create vertex, indexed triangle data. vertices - have some sparse arrays to look up existing vertex for x,y,z,( and direction of 6 if doing standard flat shading lighting. initially don't bother - just use fog and some basic texturing - eg repeating 3d function). just use trial and error to see how many vertices typically get. slice landscape into range of, say, z, if over 65536 verts. (can make verts for each slice, see if would go over vert limit etc). see how many slices typically get for some landscape. can make a vert count for slices etc without starting gl stuff.
+could separate meshes by face direction. this way can setup so draw order sensible, can cull faces dependent on where camera is.
+say, for faces pointing in z direction, separate into z-layers, have strips in x-direction, complete strips for convenience, can break within this layer (at some y value) if get to vert limit.
+
+do a gl version, simple indexed vs indexed strips - do strips save much (depends on nature of surface) - just try naive strips in one direction i guess.
+
+size of stuff? want to ensure can have a full strip, so 65536/2 = 32768 - much more than required. if want to have full layers root(65536) = 256. 
+
+next steps:
+ability to not require multiple vertices as same position for different direction faces. maybe just for smooth voxels, maybe can use some hack to permit sharp shading.
+something like - take difference between position and closest grid point. do something like normalize(1/x,1/y,1/z) - not exactly this because /0 problems. maybe some efficient way to do this.
+// 1/x*x + 1/y*y + 1/z*z = 1/ (xxyy+yyzz+xxzz / xxyyzz) * (  yz , xz, xy ) =  (xxyyzz / (xxyy + yyzz + xxzz ) ) * (  yz , xz, xy ) 
+
+for smooth voxels, just standard averaging probably ok (although maybe want perspective shading instead of 2 tris - possible?
+with this problem solved, can do indexed strip "rings", so diagonal surfaces etc can use strips for ok.
+
+apply smooth voxels algo to displace vertices
+
+then...
+collision detection (is point in voxel)
+more advanced smoothing. voxel weight?
+look into making chunks? 
+ability to modify in realtime?
+making a standard 3d demo. 3d gravity force? with cube chunks? (gravity force had 16x16 squares. could have 16x16x16 chunks!! - though this complicated by colours - guess use a texture? 64x64x64 = 512=512 which seems fine. 16x16x16 = 64x64, or 16x256 - again fine. could encode many tiles in a smallish texture ok.) do have an issue with a gl call per tile though. IIRC something like 21x63 blocks. in 3d - 27783 = 21x21x60. lots of draw calls! say we can batch geometry that uses same textures? (ie same tiles can be in same object) then can have fewer calls. or maybe with draw array of objs webgl2?
+porting into 3sphere project?
