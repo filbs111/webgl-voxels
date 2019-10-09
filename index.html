@@ -6,6 +6,34 @@
 <meta content="utf-8" http-equiv="encoding">
 <title>voxel test</title>
 
+<script type="text/javascript" src="lib/gl-matrix-min.js"></script>
+<script type="text/javascript" src="utils/webgl_utils.js"></script>
+
+<script id="shader-simple-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	varying vec3 vPos;
+	
+	void main(void) {
+		vec4 transformedCoord = uMVMatrix * vec4(aVertexPosition,1.0);	//todo use 4x3 mat?
+		gl_Position = uPMatrix * transformedCoord;
+		
+		vPos=aVertexPosition;		
+	}
+</script>
+<script id="shader-simple-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec3 vPos;
+
+	void main(void){
+		gl_FragColor=vec4(vPos,1.0);	//TODO modulus of vector values
+		//gl_FragColor=vec4(mod(vPos,1.0),1.0);	//does this work?
+		//gl_FragColor=vec4(mod(vPos.x,1.0),mod(vPos.y,1.0),vPos.z,1.0);
+	}
+	
+</script>
+
 
 <script type="text/javascript" src="js/main.js"></script>
 

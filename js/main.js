@@ -1,25 +1,106 @@
 
-var glcanvas;
-var gl;
 var canvas;
+//var gl;
+var crosssectionscanvas;
 var ctx;
-
 var voxdata;
 
+
+var basicCubeData = {
+	vertices : [
+		0,0,0,	//0
+		0,0,1,	//1
+		0,1,0,	//2
+		0,1,1,	//3
+		1,0,0,	//4
+		1,0,1,	//5
+		1,1,0,	//6
+		1,1,1],	//7
+	indices: [	//these faces "inside-out" for easier testing
+		0,2,1,	//z=0
+		3,1,2,
+				
+		4,5,6,	//z=-1
+		5,7,6,
+		
+		0,4,6,	//x=0
+		0,6,2,
+		
+		1,3,7,	//x=1
+		1,7,5,	
+		
+		0,1,4,	//y=0
+		4,1,5,
+		
+		2,6,3,	//y=1
+		6,7,3,
+	]
+}
+
+
+var basicCubeBuffers={};
+
+function initBuffers(){
+
+	loadBufferData(basicCubeBuffers, basicCubeData);
+
+	function bufferArrayData(buffer, arr, size){
+		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
+		buffer.itemSize = size;
+		buffer.numItems = arr.length / size;
+		console.log("buffered. numitems: " + buffer.numItems);
+	}
+	
+	function loadBufferData(bufferObj, sourceData){
+		bufferObj.vertexPositionBuffer = gl.createBuffer();
+		bufferArrayData(bufferObj.vertexPositionBuffer, sourceData.vertices, 3);
+		//stuff about normals etc present in 3-sph project got this from, removed here. 
+		
+		//triangles rather than strip, but no big deal- frag shader does most of the work!
+		bufferObj.vertexIndexBuffer = gl.createBuffer();
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sourceData.indices), gl.STATIC_DRAW);
+		bufferObj.vertexIndexBuffer.itemSize = 3;
+		bufferObj.vertexIndexBuffer.numItems = sourceData.indices.length;
+	}
+}
+
+
+var shaderPrograms={};
+function initShaders(){
+	shaderPrograms.simple = loadShader( "shader-simple-vs", "shader-simple-fs",{
+					attributes:["aVertexPosition"],
+					uniforms:["uMVMatrix","uPMatrix"]
+					});
+}
+
+var mvMatrix = mat4.create();
+mat4.identity(mvMatrix);
+var pMatrix = mat4.create();
+mat4.identity(pMatrix);
+//mat4.translate(mvMatrix,vec3.fromArray([0,0,-10])); //glmatix expects own vector type
+
+mvMatrix[14]=-2;	//move back to look at thing (is this camera or thing position?)
+mvMatrix[13]=-0.5;
+mvMatrix[12]=0;
+
+mat4.rotateX(mvMatrix, -1.3);	//rads
+
 function init(){	
-	glcanvas=document.getElementById("glcanvas");
+	canvas=document.getElementById("glcanvas");
 	gl=glcanvas.getContext("webgl");
 	
-	mycanvas=document.getElementById("mycanvas");
-	ctx=mycanvas.getContext("2d");
+	crosssectionscanvas=document.getElementById("mycanvas");
+	ctx=crosssectionscanvas.getContext("2d");
 	
 	
 	//voxel data. maybe better to have octree or similar. for now, use array of arrays. implementation maybe sparse. maybe good to use bits in a number (32 bit?)
 	var blocksize = 64;	//64x64x64 = 512x512, which seems manageable to draw slices onto canvas
 	var canvassize = 512;
 	
-	mycanvas.width = canvassize;
-	mycanvas.height = canvassize;
+	crosssectionscanvas.width = canvassize;
+	crosssectionscanvas.height = canvassize;
 	
 	voxdata = [];
 	//generate arrays 
@@ -73,4 +154,76 @@ function init(){
 		}
 		ctx.putImageData(imgData, blocksize*(ii%8), blocksize*((ii - ii%8)/8));
 	}
+	
+	initGL();
+	
+	gl.clearColor.apply(gl,[1,1,0,1]);
+	
+	initShaders();
+	initBuffers();
+	gl.enable(gl.DEPTH_TEST);
+	
+	requestAnimationFrame(drawScene);
+}
+
+//copied from 3sphere project. much of this unused since objs here don't have normals, textures
+function drawObjectFromBuffers(bufferObj, shaderProg, usesCubeMap){
+	prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap);
+	drawObjectFromPreppedBuffers(bufferObj, shaderProg);
+}
+function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
+	gl.enable(gl.CULL_FACE);
+	gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexPositionBuffer);
+    gl.vertexAttribPointer(shaderProg.attributes.aVertexPosition, bufferObj.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	
+	/*
+	if (bufferObj.vertexNormalBuffer && shaderProg.attributes.aVertexNormal){
+		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexNormalBuffer);
+		gl.vertexAttribPointer(shaderProg.attributes.aVertexNormal, bufferObj.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	}
+	*/
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
+	/*
+	if (bufferObj.vertexTextureCoordBuffer){
+		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexTextureCoordBuffer);
+		gl.vertexAttribPointer(shaderProg.attributes.aTextureCoord, bufferObj.vertexTextureCoordBuffer.itemSize, gl.FLOAT, false, 0, 0);
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, texture);
+		gl.uniform1i(shaderProg.uniforms.uSampler, 0);
+	}
+	
+	if (usesCubeMap){
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_CUBE_MAP, cubemapTexture);
+		gl.uniform1i(shaderProg.uniforms.uSampler, 0);
+	}
+	*/
+	//gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);
+}
+
+
+function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
+	gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);	//TODO not every frame.
+	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+}
+
+var currentTime=Date.now();
+function drawScene(drawTime){
+	requestAnimationFrame(drawScene);
+	resizecanvas(1);	//TODO should this really happen every frame? perf impact?
+	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);	//TODO should this be every frame?
+
+	mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.1,200.0,pMatrix);	//apparently 0.9.5, last param is matrix rather than 1st!! todo use newer???
+																	//also old one uses degs!
+	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+	
+	var activeShaderProgram = shaderPrograms.simple;
+	gl.useProgram(activeShaderProgram);
+	
+	//todo if drawing many, prep buffers once.
+	drawObjectFromBuffers(basicCubeBuffers, activeShaderProgram);
+	
+	mat4.rotateZ(mvMatrix,0.001*(drawTime-currentTime));
+	currentTime=drawTime;
 }
