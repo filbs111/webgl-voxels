@@ -38,11 +38,17 @@ var basicCubeData = {
 }
 
 
+
 var basicCubeBuffers={};
+var voxData={};
+var voxBuffers={};
 
 function initBuffers(){
 
 	loadBufferData(basicCubeBuffers, basicCubeData);
+	
+	voxBuffers["stupid"]={};
+	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
 
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -81,11 +87,14 @@ var pMatrix = mat4.create();
 mat4.identity(pMatrix);
 //mat4.translate(mvMatrix,vec3.fromArray([0,0,-10])); //glmatix expects own vector type
 
-mvMatrix[14]=-2;	//move back to look at thing (is this camera or thing position?)
+mvMatrix[14]=-3;	//move back to look at thing (is this camera or thing position?)
 mvMatrix[13]=-0.5;
 mvMatrix[12]=0;
 
 mat4.rotateX(mvMatrix, -1.3);	//rads
+mat4.rotateZ(mvMatrix, 4);
+
+voxdata = [];
 
 function init(){	
 	canvas=document.getElementById("glcanvas");
@@ -102,7 +111,7 @@ function init(){
 	crosssectionscanvas.width = canvassize;
 	crosssectionscanvas.height = canvassize;
 	
-	voxdata = [];
+	//voxdata = [];
 	//generate arrays 
 	for (var ii=0;ii<blocksize;ii++){
 		var slicedata=[];
@@ -125,11 +134,19 @@ function init(){
 		}
 	}
 	
-	makeVoxdataForFunc(sinesfunction);
+	//makeVoxdataForFunc(sinesfunction);
+	makeVoxdataForFunc(bigBallFunction);
 	
 	function sinesfunction(ii,jj,kk){
 		var sinscale=3;
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale) > 0;
+	}
+	function bigBallFunction(ii,jj,kk){
+		var iim,jjm,kkm;
+		iim = ii-blocksize/2;
+		jjm = jj-blocksize/2;
+		kkm = kk-blocksize/2;
+		return iim*iim + jjm*jjm + kkm*kkm >1000;
 	}
 	
 	console.log(voxdata);
@@ -154,6 +171,134 @@ function init(){
 		}
 		ctx.putImageData(imgData, blocksize*(ii%8), blocksize*((ii - ii%8)/8));
 	}
+	
+	
+	//generate mesh data for voxels. TODO put this into another file
+	//create (sparse) array containing the vertex id for each 3d point
+	//either as 2nd step or as go along, create 2 tris between any pairs of occupied/unoccupied blocks
+	
+	//try just counting faces. ignore outermost
+	//if having dedicated verts for faces in each direction, quads<=verts<=4*quads	. for roundish objects, suspect closer to latter
+	var totalQuads=0;
+	//TODO 3 sets of faces
+	for (var ii=0;ii<blocksize-1;ii++){
+		var slicedata = voxdata[ii];
+		var nextSlicedata = voxdata[ii+1];
+		for (var jj=0;jj<blocksize;jj++){
+			var stripData=slicedata[jj];
+			var nextStripData=nextSlicedata[jj];
+			for (var kk=0;kk<blocksize;kk++){
+				if (stripData[kk]!=nextStripData[kk]){
+					totalQuads++;
+				}
+			}
+		}
+	}
+	console.log(totalQuads);
+	for (var ii=0;ii<blocksize;ii++){
+		var slicedata = voxdata[ii];
+		for (var jj=0;jj<blocksize-1;jj++){
+			var stripData=slicedata[jj];
+			var nextStripData=slicedata[jj+1];
+			for (var kk=0;kk<blocksize;kk++){
+				if (stripData[kk]!=nextStripData[kk]){
+					totalQuads++;
+				}
+			}
+		}
+	}
+	console.log(totalQuads);
+	for (var ii=0;ii<blocksize;ii++){
+		var slicedata = voxdata[ii];
+		for (var jj=0;jj<blocksize;jj++){
+			var stripData=slicedata[jj];
+			for (var kk=0;kk<blocksize-1;kk++){
+				if (stripData[kk]!=stripData[kk+1]){
+					totalQuads++;
+				}
+			}
+		}
+	}
+	console.log(totalQuads);
+	//~49k for array of spheres.
+	//~18k for big ball
+	
+	//todo count unique vertices (in all 6 directions)
+	
+	//todo not indexed version (easier, no problem with 65536 index limit)
+	
+	var voxDataStupid = (function(){
+		//stupid implementation. a vertex for every grid point, regardless of whether occupied.
+		//can only do part of 64x64x64 this way
+		var vertices = [];
+		var indices = [];
+		
+		for (var ii=0;ii<=32;ii++){
+			for (var jj=0;jj<=32;jj++){
+				for (var kk=0;kk<=32;kk++){
+					vertices.push(ii/32, jj/32, kk/32);
+				}
+			}
+		}
+		
+		var oneVertIdx;
+		for (var ii=0;ii<32;ii++){
+			for (var jj=0;jj<32;jj++){
+				for (var kk=0;kk<31;kk++){
+					if (voxdata[ii][jj][kk] != voxdata[ii][jj][kk+1]){
+						oneVertIdx = ii*33*33 + jj*33 + kk + 1 ;
+						//TODO handedness
+						//indices.push( oneVertIdx , oneVertIdx+33 , oneVertIdx+33+33*33 );	//TODO 2 triangles
+						//indices.push( oneVertIdx , oneVertIdx+33+33*33, oneVertIdx+33*33);	//TODO 2 triangles
+						
+						indices.push( oneVertIdx, oneVertIdx+33+33*33, oneVertIdx+33 );		//top faces
+						indices.push( oneVertIdx, oneVertIdx+33*33, oneVertIdx+33+33*33);
+					}
+				}
+			}
+		}
+		
+		for (var ii=0;ii<32;ii++){
+			for (var jj=0;jj<31;jj++){
+				for (var kk=0;kk<32;kk++){
+					if (voxdata[ii][jj][kk] != voxdata[ii][jj+1][kk]){
+						oneVertIdx = ii*33*33 + jj*33 + kk + 33 ;
+						//TODO handedness
+						indices.push( oneVertIdx, oneVertIdx+1, oneVertIdx+1+33*33 );
+						indices.push( oneVertIdx, oneVertIdx+1+33*33, oneVertIdx+33*33);
+						
+						//indices.push( oneVertIdx, oneVertIdx+1+33*33, oneVertIdx+1 );
+						//indices.push( oneVertIdx, oneVertIdx+33*33, oneVertIdx+1+33*33);
+					}
+				}
+			}
+		}
+		
+		for (var ii=0;ii<31;ii++){
+			for (var jj=0;jj<32;jj++){
+				for (var kk=0;kk<32;kk++){
+					if (voxdata[ii][jj][kk] != voxdata[ii+1][jj][kk]){
+						oneVertIdx = ii*33*33 + jj*33 + kk + 33*33 ;
+						//TODO handedness
+						//indices.push( oneVertIdx, oneVertIdx+1, oneVertIdx+1+33);
+						//indices.push( oneVertIdx, oneVertIdx+1+33, oneVertIdx+33);
+						
+						indices.push( oneVertIdx, oneVertIdx+1+33, oneVertIdx+1);
+						indices.push( oneVertIdx, oneVertIdx+33, oneVertIdx+1+33);
+					}
+				}
+			}
+		}
+		
+		return {
+			vertices:vertices,
+			indices:indices
+		};
+	})();
+	
+	voxData["stupid"]=voxDataStupid;
+	
+	
 	
 	initGL();
 	
@@ -208,7 +353,7 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
 	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 }
 
-var currentTime=Date.now();
+var currentTime=0;
 function drawScene(drawTime){
 	requestAnimationFrame(drawScene);
 	resizecanvas(1);	//TODO should this really happen every frame? perf impact?
@@ -223,7 +368,8 @@ function drawScene(drawTime){
 	
 	//todo if drawing many, prep buffers once.
 	drawObjectFromBuffers(basicCubeBuffers, activeShaderProgram);
+	drawObjectFromBuffers(voxBuffers["stupid"], activeShaderProgram);
 	
-	mat4.rotateZ(mvMatrix,0.001*(drawTime-currentTime));
+	mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
 	currentTime=drawTime;
 }
