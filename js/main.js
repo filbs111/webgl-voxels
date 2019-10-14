@@ -134,8 +134,8 @@ function init(){
 		}
 	}
 	
-	//makeVoxdataForFunc(sinesfunction);
-	makeVoxdataForFunc(bigBallFunction);
+	makeVoxdataForFunc(sinesfunction);
+	//makeVoxdataForFunc(bigBallFunction);
 	
 	function sinesfunction(ii,jj,kk){
 		var sinscale=3;
@@ -245,14 +245,16 @@ function init(){
 		for (var ii=0;ii<32;ii++){
 			for (var jj=0;jj<32;jj++){
 				for (var kk=0;kk<31;kk++){
-					if (voxdata[ii][jj][kk] != voxdata[ii][jj][kk+1]){
+					var difference=voxdata[ii][jj][kk+1]-voxdata[ii][jj][kk];
+					if (difference!=0){
 						oneVertIdx = ii*33*33 + jj*33 + kk + 1 ;
-						//TODO handedness
-						//indices.push( oneVertIdx , oneVertIdx+33 , oneVertIdx+33+33*33 );	//TODO 2 triangles
-						//indices.push( oneVertIdx , oneVertIdx+33+33*33, oneVertIdx+33*33);	//TODO 2 triangles
-						
-						indices.push( oneVertIdx, oneVertIdx+33+33*33, oneVertIdx+33 );		//top faces
-						indices.push( oneVertIdx, oneVertIdx+33*33, oneVertIdx+33+33*33);
+						if ( difference>0 ){
+							indices.push( oneVertIdx , oneVertIdx+33 , oneVertIdx+33+33*33 );	//bottom faces
+							indices.push( oneVertIdx , oneVertIdx+33+33*33, oneVertIdx+33*33);
+						}else{
+							indices.push( oneVertIdx, oneVertIdx+33+33*33, oneVertIdx+33 );		//top faces
+							indices.push( oneVertIdx, oneVertIdx+33*33, oneVertIdx+33+33*33);
+						}
 					}
 				}
 			}
@@ -261,14 +263,16 @@ function init(){
 		for (var ii=0;ii<32;ii++){
 			for (var jj=0;jj<31;jj++){
 				for (var kk=0;kk<32;kk++){
-					if (voxdata[ii][jj][kk] != voxdata[ii][jj+1][kk]){
+					var difference=voxdata[ii][jj+1][kk]-voxdata[ii][jj][kk];
+					if (difference!=0){
 						oneVertIdx = ii*33*33 + jj*33 + kk + 33 ;
-						//TODO handedness
-						indices.push( oneVertIdx, oneVertIdx+1, oneVertIdx+1+33*33 );
-						indices.push( oneVertIdx, oneVertIdx+1+33*33, oneVertIdx+33*33);
-						
-						//indices.push( oneVertIdx, oneVertIdx+1+33*33, oneVertIdx+1 );
-						//indices.push( oneVertIdx, oneVertIdx+33*33, oneVertIdx+1+33*33);
+						if ( difference<0 ){
+							indices.push( oneVertIdx, oneVertIdx+1, oneVertIdx+1+33*33 );
+							indices.push( oneVertIdx, oneVertIdx+1+33*33, oneVertIdx+33*33);
+						}else{
+							indices.push( oneVertIdx, oneVertIdx+1+33*33, oneVertIdx+1 );
+							indices.push( oneVertIdx, oneVertIdx+33*33, oneVertIdx+1+33*33);
+						}
 					}
 				}
 			}
@@ -277,14 +281,16 @@ function init(){
 		for (var ii=0;ii<31;ii++){
 			for (var jj=0;jj<32;jj++){
 				for (var kk=0;kk<32;kk++){
-					if (voxdata[ii][jj][kk] != voxdata[ii+1][jj][kk]){
-						oneVertIdx = ii*33*33 + jj*33 + kk + 33*33 ;
-						//TODO handedness
-						//indices.push( oneVertIdx, oneVertIdx+1, oneVertIdx+1+33);
-						//indices.push( oneVertIdx, oneVertIdx+1+33, oneVertIdx+33);
-						
-						indices.push( oneVertIdx, oneVertIdx+1+33, oneVertIdx+1);
-						indices.push( oneVertIdx, oneVertIdx+33, oneVertIdx+1+33);
+					var difference=voxdata[ii+1][jj][kk]-voxdata[ii][jj][kk];
+					if ( difference!=0 ){
+						oneVertIdx = ii*33*33 + jj*33 + kk + 33*33 ;					
+						if ( difference>0 ){
+							indices.push( oneVertIdx, oneVertIdx+1, oneVertIdx+1+33);
+							indices.push( oneVertIdx, oneVertIdx+1+33, oneVertIdx+33);
+						}else{
+							indices.push( oneVertIdx, oneVertIdx+1+33, oneVertIdx+1);
+							indices.push( oneVertIdx, oneVertIdx+33, oneVertIdx+1+33);
+						}
 					}
 				}
 			}
