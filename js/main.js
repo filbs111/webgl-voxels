@@ -48,7 +48,9 @@ function initBuffers(){
 	loadBufferData(basicCubeBuffers, basicCubeData);
 	
 	voxBuffers["stupid"]={};
+	voxBuffers["sparse"]={};
 	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
+	loadBufferData(voxBuffers["sparse"], voxData["sparse"]);
 
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -227,7 +229,7 @@ function init(){
 	
 	//todo not indexed version (easier, no problem with 65536 index limit)
 	
-	var voxDataStupid = (function(){
+	voxData["stupid"] = (function(){
 		//stupid implementation. a vertex for every grid point, regardless of whether occupied.
 		//can only do part of 64x64x64 this way
 		var vertices = [];
@@ -300,11 +302,137 @@ function init(){
 			vertices:vertices,
 			indices:indices
 		};
+	})();	
+	
+	
+	voxData["sparse"] = (function(){
+		//stupid implementation. a vertex for every grid point, regardless of whether occupied.
+		//can only do part of 64x64x64 this way
+		var vertices = [];
+		var indices = [];
+		
+		
+		
+		//sparse version - no unused vertices.
+		var indexForGridPoint = [];
+		var currentPoint = 0;
+		var numNeighbours;
+		var occNeighbours;
+		for (var ii=0;ii<=64;ii++){
+			for (var jj=0;jj<=64;jj++){
+				for (var kk=0;kk<=64;kk++){
+					numNeighbours=1;
+					occNeighbours=0;
+					if (ii>0 && ii<64){numNeighbours*=2;};
+					if (jj>0 && jj<64){numNeighbours*=2;};
+					if (kk>0 && kk<64){numNeighbours*=2;};
+					
+					if (ii<64 && jj<64 && kk<64 && voxdata[ii][jj][kk]){
+						occNeighbours++;
+					}
+					if (ii<64 && jj<64 && kk>0 && voxdata[ii][jj][kk-1]){
+						occNeighbours++;
+					}
+					if (ii<64 && jj>0 && kk<64 && voxdata[ii][jj-1][kk]){
+						occNeighbours++;
+					}
+					if (ii<64 && jj>0 && kk>0 && voxdata[ii][jj-1][kk-1]){
+						occNeighbours++;
+					}
+					if (ii>0 && jj<64 && kk<64 && voxdata[ii-1][jj][kk]){
+						occNeighbours++;
+					}
+					if (ii>0 && jj<64 && kk>0 && voxdata[ii-1][jj][kk-1]){
+						occNeighbours++;
+					}
+					if (ii>0 && jj>0 && kk<64 && voxdata[ii-1][jj-1][kk]){
+						occNeighbours++;
+					}
+					if (ii>0 && jj>0 && kk>0 && voxdata[ii-1][jj-1][kk-1]){
+						occNeighbours++;
+					}
+					if (occNeighbours%numNeighbours){	// ( !=0 )
+						indexForGridPoint[getNumberOfGridPoint(ii,jj,kk)] = currentPoint;
+						addVertData(ii,jj,kk);
+						currentPoint++;
+					}	
+				}
+			}
+		}
+		console.log(currentPoint);
+		console.log(indexForGridPoint);
+		
+		function addVertData(ii,jj,kk){
+			vertices.push(ii/32, jj/32, kk/32);
+		}
+		function getNumberOfGridPoint(ii,jj,kk){
+			return ii*65*65 + jj*65 + kk;
+		}
+		function pushIndexForNumber(nii,njj,nkk){
+			indices.push(indexForGridPoint[nii],indexForGridPoint[njj],indexForGridPoint[nkk]);
+		}
+		
+		var oneVertIdx;
+		for (var ii=0;ii<64;ii++){
+			for (var jj=0;jj<64;jj++){
+				for (var kk=0;kk<63;kk++){
+					var difference=voxdata[ii][jj][kk+1]-voxdata[ii][jj][kk];
+					if (difference!=0){
+						oneVertIdx = getNumberOfGridPoint(ii,jj,kk+1);
+						if ( difference>0 ){
+							pushIndexForNumber( oneVertIdx , oneVertIdx+65 , oneVertIdx+65+65*65 );	//bottom faces
+							pushIndexForNumber( oneVertIdx , oneVertIdx+65+65*65, oneVertIdx+65*65);
+						}else{
+							pushIndexForNumber( oneVertIdx, oneVertIdx+65+65*65, oneVertIdx+65 );		//top faces
+							pushIndexForNumber( oneVertIdx, oneVertIdx+65*65, oneVertIdx+65+65*65);
+						}
+					}
+				}
+			}
+		}
+		
+		for (var ii=0;ii<64;ii++){
+			for (var jj=0;jj<63;jj++){
+				for (var kk=0;kk<64;kk++){
+					var difference=voxdata[ii][jj+1][kk]-voxdata[ii][jj][kk];
+					if (difference!=0){
+						oneVertIdx = getNumberOfGridPoint(ii,jj+1,kk);
+						if ( difference<0 ){
+							pushIndexForNumber( oneVertIdx, oneVertIdx+1, oneVertIdx+1+65*65 );
+							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65*65, oneVertIdx+65*65);
+						}else{
+							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65*65, oneVertIdx+1 );
+							pushIndexForNumber( oneVertIdx, oneVertIdx+65*65, oneVertIdx+1+65*65);
+						}
+					}
+				}
+			}
+		}
+		
+		for (var ii=0;ii<63;ii++){
+			for (var jj=0;jj<64;jj++){
+				for (var kk=0;kk<64;kk++){
+					var difference=voxdata[ii+1][jj][kk]-voxdata[ii][jj][kk];
+					if ( difference!=0 ){
+						oneVertIdx = getNumberOfGridPoint(ii+1,jj,kk);					
+						if ( difference>0 ){
+							pushIndexForNumber( oneVertIdx, oneVertIdx+1, oneVertIdx+1+65);
+							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65, oneVertIdx+65);
+						}else{
+							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65, oneVertIdx+1);
+							pushIndexForNumber( oneVertIdx, oneVertIdx+65, oneVertIdx+1+65);
+						}
+					}
+				}
+			}
+		}
+		
+		return {
+			vertices:vertices,
+			indices:indices
+		};
 	})();
-	
-	voxData["stupid"]=voxDataStupid;
-	
-	
+		
 	
 	initGL();
 	
@@ -373,8 +501,9 @@ function drawScene(drawTime){
 	gl.useProgram(activeShaderProgram);
 	
 	//todo if drawing many, prep buffers once.
-	drawObjectFromBuffers(basicCubeBuffers, activeShaderProgram);
-	drawObjectFromBuffers(voxBuffers["stupid"], activeShaderProgram);
+	//drawObjectFromBuffers(basicCubeBuffers, activeShaderProgram);
+	//drawObjectFromBuffers(voxBuffers["stupid"], activeShaderProgram);
+	drawObjectFromBuffers(voxBuffers["sparse"], activeShaderProgram);
 	
 	mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
 	currentTime=drawTime;
