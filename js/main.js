@@ -98,7 +98,11 @@ mat4.rotateZ(mvMatrix, 4);
 
 voxdata = [];
 
-function init(){	
+function init(){
+	stats = new Stats();
+	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
+	document.body.appendChild( stats.dom );
+	
 	canvas=document.getElementById("glcanvas");
 	gl=glcanvas.getContext("webgl");
 	
@@ -535,6 +539,10 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
 var currentTime=0;
 function drawScene(drawTime){
 	requestAnimationFrame(drawScene);
+	
+	stats.end();
+	stats.begin();
+	
 	resizecanvas(1);	//TODO should this really happen every frame? perf impact?
 	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);	//TODO should this be every frame?
 
