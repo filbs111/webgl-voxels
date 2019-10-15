@@ -137,7 +137,8 @@ function init(){
 	}
 	
 	//var voxFunction = sinesfunction;
-	var voxFunction = bigBallFunction;
+	var voxFunction = landscapeFunction;
+	//var voxFunction = bigBallFunction;
 	
 	makeVoxdataForFunc(voxFunction);	
 	
@@ -152,6 +153,21 @@ function init(){
 		jjm = jj-blocksize/2;
 		kkm = kk-blocksize/2;
 		return iim*iim + jjm*jjm + kkm*kkm - 1000;
+	}
+	function landscapeFunction(ii,jj,kk){	
+		var iim,jjm,kkm;
+		iim = ii-blocksize/2;
+		jjm = jj-blocksize/2;
+		kkm = kk-blocksize/2 +15;	//add to move hole deeper
+		var ballPot = Math.sqrt(iim*iim + jjm*jjm + kkm*kkm) - 20;
+		
+		var sinscale=3;
+		var eggboxPot = Math.sin(ii/sinscale)+Math.sin(jj/sinscale);
+		
+		//return Math.min( eggboxPot - (kk/2 - 15) , ballPot/2);	//sharp field causes jagged edge when using standard "downhill" vertex adjustment (which assumes constant gradient)
+		
+		return ((eggboxPot - (kk/2 - 15))+3) * ((ballPot/2)+3) - 9;	//smoother field
+		
 	}
 	
 	console.log(voxdata);
