@@ -130,25 +130,28 @@ function init(){
 			for (var jj=0;jj<blocksize;jj++){
 				var stripdata = slicedata[jj];
 				for (var kk=0;kk<blocksize;kk++){
-					stripdata[kk] = thefunction(ii,jj,kk);	//if know starting from empty array, can use push. if want sparse array, should use conditional. 
+					stripdata[kk] = (thefunction(ii,jj,kk) > 0 );	//if know starting from empty array, can use push. if want sparse array, should use conditional. 
 				}											//note some functions may benefit from currying eg functionForXY= thefunction(ii,jj), 
 			}
 		}
 	}
 	
-	makeVoxdataForFunc(sinesfunction);
-	//makeVoxdataForFunc(bigBallFunction);
+	//var voxFunction = sinesfunction;
+	var voxFunction = bigBallFunction;
+	
+	makeVoxdataForFunc(voxFunction);	
 	
 	function sinesfunction(ii,jj,kk){
 		var sinscale=3;
-		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale) > 0;
+		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
+		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale) - (ii/20 - 0.5);
 	}
 	function bigBallFunction(ii,jj,kk){
 		var iim,jjm,kkm;
 		iim = ii-blocksize/2;
 		jjm = jj-blocksize/2;
 		kkm = kk-blocksize/2;
-		return iim*iim + jjm*jjm + kkm*kkm >1000;
+		return iim*iim + jjm*jjm + kkm*kkm - 1000;
 	}
 	
 	console.log(voxdata);
@@ -304,7 +307,7 @@ function init(){
 		};
 	})();	
 	
-	
+	var topFaceCount=0;
 	voxData["sparse"] = (function(){
 		//stupid implementation. a vertex for every grid point, regardless of whether occupied.
 		//can only do part of 64x64x64 this way
@@ -363,7 +366,30 @@ function init(){
 		console.log(indexForGridPoint);
 		
 		function addVertData(ii,jj,kk){
-			vertices.push(ii/32, jj/32, kk/32);
+			//vertices.push(ii/32, jj/32, kk/32);
+			
+			//smooth vertices (TODO make 2 vert buffers and UI to switch between) 
+			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
+			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
+			var delta = 0.01;
+			
+			var centralPoint = voxFunction(ii,jj,kk);
+			
+			var potdiscrepancy
+			
+			var gradX = (voxFunction(ii+delta,jj,kk)- centralPoint)/delta;
+			var gradY = (voxFunction(ii,jj+delta,kk)- centralPoint)/delta;
+			var gradZ = (voxFunction(ii,jj,kk+delta)- centralPoint)/delta;
+			
+			var totalGradSq = gradX*gradX + gradY*gradY + gradZ*gradZ;
+			
+			//have some sort of hill normal. should move downhill
+			//move by something like (discrepancy / totalGradent)*(gradientVector/totalGradient)
+			//to avoid /0 error add something to totalGradient
+		
+			var sharedPart = centralPoint / ( totalGradSq + 0.01);
+		
+			vertices.push((ii-sharedPart*gradX)/32, (jj-sharedPart*gradY)/32, (kk-sharedPart*gradZ)/32);			
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
@@ -385,6 +411,7 @@ function init(){
 						}else{
 							pushIndexForNumber( oneVertIdx, oneVertIdx+65+65*65, oneVertIdx+65 );		//top faces
 							pushIndexForNumber( oneVertIdx, oneVertIdx+65*65, oneVertIdx+65+65*65);
+							topFaceCount++;
 						}
 					}
 				}
@@ -432,7 +459,9 @@ function init(){
 			indices:indices
 		};
 	})();
-		
+	
+	console.log("topFaceCount: " + topFaceCount);
+	
 	
 	initGL();
 	
