@@ -152,10 +152,17 @@ function init(){
 	}
 	
 	//var voxFunction = sinesfunction;
-	var voxFunction = landscapeFunction;
+	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
 	
+	noise.seed(Math.random());
+	var voxFunction = perlinfunction;
+	
 	makeVoxdataForFunc(voxFunction);	
+	
+	function perlinfunction(ii,jj,kk){
+		return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
+	}
 	
 	function sinesfunction(ii,jj,kk){
 		var sinscale=3;
