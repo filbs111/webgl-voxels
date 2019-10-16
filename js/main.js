@@ -98,10 +98,21 @@ mat4.rotateZ(mvMatrix, 4);
 
 voxdata = [];
 
+var guiParams={
+	box:false,
+	stupid:false,
+	sparse:true
+};
+
 function init(){
 	stats = new Stats();
 	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 	document.body.appendChild( stats.dom );
+	
+	var gui = new dat.GUI();
+	gui.add(guiParams, "box");
+	gui.add(guiParams, "stupid");
+	gui.add(guiParams, "sparse");
 	
 	canvas=document.getElementById("glcanvas");
 	gl=glcanvas.getContext("webgl");
@@ -554,10 +565,15 @@ function drawScene(drawTime){
 	gl.useProgram(activeShaderProgram);
 	
 	//todo if drawing many, prep buffers once.
-	//drawObjectFromBuffers(basicCubeBuffers, activeShaderProgram);
-	//drawObjectFromBuffers(voxBuffers["stupid"], activeShaderProgram);
-	drawObjectFromBuffers(voxBuffers["sparse"], activeShaderProgram);
-	
+	if (guiParams.box){
+		drawObjectFromBuffers(basicCubeBuffers, activeShaderProgram);
+	}
+	if (guiParams.stupid){
+		drawObjectFromBuffers(voxBuffers["stupid"], activeShaderProgram);
+	}
+	if (guiParams.sparse){
+		drawObjectFromBuffers(voxBuffers["sparse"], activeShaderProgram);
+	}
 	mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
 	currentTime=drawTime;
 }
