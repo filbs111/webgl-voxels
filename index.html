@@ -16,23 +16,30 @@
 	uniform mat4 uMVMatrix;
 	uniform mat4 uPMatrix;
 	varying vec3 vPos;
+	varying float fog;
 	
 	void main(void) {
 		vec4 transformedCoord = uMVMatrix * vec4(aVertexPosition,1.0);	//todo use 4x3 mat?
 		gl_Position = uPMatrix * transformedCoord;
 		
+		fog = -transformedCoord.z * 0.125;
 		vPos=aVertexPosition;		
 	}
 </script>
 <script id="shader-simple-fs" type="x-shader/x-fragment">
 	precision mediump float;
 	varying vec3 vPos;
-
+	varying float fog;
+	
 	void main(void){
 		//gl_FragColor=vec4(mod(0.999*vPos,1.0),1.0);	
 		//gl_FragColor=vec4(mod(15.999*vPos,1.0),1.0);	
 		//gl_FragColor=vec4(0.5+0.5*(cos(100.531*vPos)),1.0);	//100.531 ~ 16*(2*PI)
-		gl_FragColor=vec4(0.5+0.5*(cos(25.13*vPos)),1.0);	
+		
+		//gl_FragColor=vec4(0.5+0.5*(cos(25.13*vPos)),1.0);	
+		
+		vec3 surfColor = 0.5+0.5*(cos(25.13*vPos));
+		gl_FragColor=vec4(vec3(1.0,1.0,0.0)*fog+(1.0-fog)*surfColor,1.0);	
 	}
 	
 </script>
