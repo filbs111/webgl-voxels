@@ -97,17 +97,38 @@ function initShaders(){
 }
 
 var mvMatrix = mat4.create();
-mat4.identity(mvMatrix);
+//mat4.identity(mvMatrix);
 var pMatrix = mat4.create();
 mat4.identity(pMatrix);
 //mat4.translate(mvMatrix,vec3.fromArray([0,0,-10])); //glmatix expects own vector type
+
+
+var playerPosition = [0,-0.5,-3];	//should be contained within playerMatrix. TODO sort this (code here consistent with webglwideanglecamera project)
 
 mvMatrix[14]=-3;	//move back to look at thing (is this camera or thing position?)
 mvMatrix[13]=-0.5;
 mvMatrix[12]=0;
 
-mat4.rotateX(mvMatrix, -1.3);	//rads
-mat4.rotateZ(mvMatrix, 4);
+var playerMatrix = mat4.identity();
+
+mat4.rotateX(playerMatrix, -1.3);	//rads
+mat4.rotateZ(playerMatrix, 1);
+rotatePlayer([0,0,0]);	//hack to cause position update in matrix?
+
+
+
+//mat4.set(mvMatrix, playerMatrix);	//??
+
+var mainCamFov = 105;	//degrees.
+
+var mouseInfo = {
+	x:0,
+	y:0,
+	dragging: false,
+	lastPointingDir:{},
+	currentPointingDir:{x:0,y:0,z:1,w:1}
+};
+
 
 voxdata = [];
 
@@ -117,6 +138,8 @@ var guiParams={
 	sparse:true,
 	sparseWithNormals:false
 };
+
+var stats;
 
 function init(){
 	stats = new Stats();
@@ -131,6 +154,56 @@ function init(){
 	
 	canvas=document.getElementById("glcanvas");
 	gl=glcanvas.getContext("webgl");
+	
+	
+	
+	canvas.addEventListener("mousedown", function(evt){
+		mouseInfo.x = evt.offsetX;
+		mouseInfo.y = evt.offsetY;
+		mouseInfo.dragging = evt.buttons & 1;
+		mouseInfo.lastPointingDir = getPointingDirectionFromScreenCoordinate({x:mouseInfo.x, y: mouseInfo.y});
+		mouseInfo.buttons = evt.buttons;
+		evt.preventDefault();
+	});
+	canvas.addEventListener("mouseup", function(evt){
+		mouseInfo.dragging = evt.buttons & 1;
+		mouseInfo.buttons = evt.buttons;
+	});
+	canvas.addEventListener("mouseout", function(evt){
+		mouseInfo.dragging = false;
+		mouseInfo.buttons = 0;
+	});
+	canvas.addEventListener("mousemove", function(evt){
+		mouseInfo.currentPointingDir = getPointingDirectionFromScreenCoordinate({x:evt.offsetX, y: evt.offsetY});
+		if (mouseInfo.dragging){
+			var pointingDir = mouseInfo.currentPointingDir;
+			//console.log("pointingDir = " + pointingDir);
+			
+			//get the direction of current and previous mouse position.
+			//do a cross product to work out the angle rotated
+			//and rotate the player by this amount
+			
+			var crossProd = crossProductHomgenous(pointingDir, mouseInfo.lastPointingDir);
+			mouseInfo.lastPointingDir = pointingDir;
+			
+			//rotate player 
+			//guess have signs here because of unplanned handedness of screen, 3d co-ord systems
+			var rotateAmt = [-crossProd.x / crossProd.w, crossProd.y / crossProd.w, crossProd.z / crossProd.w];
+			rotatePlayer(rotateAmt);
+			
+		}
+		/*
+		if (pointerLocked){
+			rotatePlayer([ -0.001* evt.movementY, -0.001* evt.movementX, 0]);	//TODO screen resolution dependent sensitivity.
+		}
+		*/
+	});
+	canvas.addEventListener("click", function(evt){
+		movePlayer([0,0,0.05]);	//basic click to move forward. TODO keyboard controls
+	});
+	
+	
+	
 	
 	crosssectionscanvas=document.getElementById("mycanvas");
 	ctx=crosssectionscanvas.getContext("2d");
@@ -166,12 +239,12 @@ function init(){
 		}
 	}
 	
-	var voxFunction = sinesfunction;
+	//var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
 	
 	noise.seed(Math.random());
-	//var voxFunction = perlinfunction;
+	var voxFunction = perlinfunction;
 	
 	makeVoxdataForFunc(voxFunction);	
 	
@@ -600,8 +673,11 @@ function drawScene(drawTime){
 	resizecanvas(1);	//TODO should this really happen every frame? perf impact?
 	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);	//TODO should this be every frame?
 
-	mat4.perspective(60, gl.viewportWidth/gl.viewportHeight, 0.1,200.0,pMatrix);	//apparently 0.9.5, last param is matrix rather than 1st!! todo use newer???
+	mat4.perspective(mainCamFov, gl.viewportWidth/gl.viewportHeight, 0.01,20.0,pMatrix);	//apparently 0.9.5, last param is matrix rather than 1st!! todo use newer???
 																	//also old one uses degs!
+																	
+	mat4.set(playerMatrix, mvMatrix);																
+																	
 	gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 	
 	var activeShaderProgram = shaderPrograms.simple;
@@ -624,6 +700,64 @@ function drawScene(drawTime){
 		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
 	}
 	
-	mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
+	//mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
 	currentTime=drawTime;
+}
+
+
+function movePlayer(vec){	//[left,up,forward]
+	playerPosition[0] += vec[0]*playerMatrix[0] + vec[1]*playerMatrix[1] + vec[2]*playerMatrix[2];
+	playerPosition[1] += vec[0]*playerMatrix[4] + vec[1]*playerMatrix[5] + vec[2]*playerMatrix[6];
+	playerPosition[2] += vec[0]*playerMatrix[8] + vec[1]*playerMatrix[9] + vec[2]*playerMatrix[10];
+	setPlayerTranslation(playerPosition);
+	//constrainPlayerPositionToBox();
+}
+
+function rotatePlayer(vec){
+	setPlayerTranslation([0,0,0]);
+	var rotationMag = Math.sqrt(vec[0]*vec[0] + vec[1]*vec[1] + vec[2]*vec[2]);
+	var rotMat=mat4.identity();
+	mat4.rotate(rotMat, rotationMag, [vec[0]/rotationMag, vec[1]/rotationMag, vec[2]/rotationMag]);	//TODO find or make method taking vector instead of separate unit axis/angle
+	mat4.multiply(rotMat, playerMatrix, playerMatrix);
+	setPlayerTranslation(playerPosition);
+}
+
+function setPlayerTranslation(posArray){
+	setMatTranslation(playerMatrix, posArray);
+}
+
+function setMatTranslation(mat, posArray){
+	//probably using mat4 wierdly so standard mat4.translate isn't working sensibly
+	mat[12]=0;mat[13]=0;mat[14]=0;
+	mat4.translate(mat, posArray);
+}
+
+function getPointingDirectionFromScreenCoordinate(coords){
+	
+	var maxyvert = 1.0;	
+	var maxxvert = screenAspect;
+	
+	var xpos = maxxvert*(coords.x*2.0/gl.viewportWidth   -1.0 );
+	var ypos = maxyvert*(coords.y*2.0/gl.viewportHeight   -1.0 );
+	var radsq = xpos*xpos + ypos*ypos;
+	var zpos = 1.0/Math.tan(mainCamFov*Math.PI/360); //TODO precalc
+
+	//normalise - use sending back homogenous co-ords because maybe a tiny amount more efficient since cross producting anyway
+	var mag= Math.sqrt(radsq + zpos*zpos);
+	
+	return {
+		x: xpos,
+		y: ypos,
+		z: zpos,
+		w: mag
+	}
+}
+
+function crossProductHomgenous(dir1, dir2){
+	var output ={};
+	output.x = dir1.y * dir2.z - dir1.z * dir2.y; 
+	output.y = dir1.z * dir2.x - dir1.x * dir2.z; 
+	output.z = dir1.x * dir2.y - dir1.y * dir2.x;
+	output.w = dir1.w * dir2.w;
+	return output;
 }
