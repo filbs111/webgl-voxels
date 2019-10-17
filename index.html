@@ -27,6 +27,7 @@
 		vPos=aVertexPosition;		
 	}
 </script>
+
 <script id="shader-simple-fs" type="x-shader/x-fragment">
 	precision mediump float;
 	varying vec3 vPos;
@@ -41,6 +42,38 @@
 		
 		vec3 surfColor = 0.5+0.5*(cos(25.13*vPos));
 		gl_FragColor=vec4(vec3(1.0,1.0,0.0)*fog+(1.0-fog)*surfColor,1.0);	
+	}
+	
+</script>
+
+<script id="shader-withnormals-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	attribute vec3 aVertexNormal;
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	varying vec3 vPos;
+	varying float fog;	//could combo with color
+	varying vec3 vColor;
+	
+	void main(void) {
+		vec4 transformedCoord = uMVMatrix * vec4(aVertexPosition,1.0);	//todo use 4x3 mat?
+		gl_Position = uPMatrix * transformedCoord;
+		
+		vColor = vec3(1.0)*max(0.0,dot(aVertexNormal,vec3(0.2,0.1,-0.8)));	//light direction (simple directional light)
+		
+		fog = -transformedCoord.z * 0.125;
+		vPos=aVertexPosition;		
+	}
+</script>
+
+<script id="shader-color-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	varying vec3 vPos;
+	varying float fog;
+	varying vec3 vColor;
+	
+	void main(void){	
+		gl_FragColor=vec4(vec3(1.0,1.0,0.0)*fog+(1.0-fog)*vColor,1.0);	
 	}
 	
 </script>

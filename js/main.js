@@ -49,8 +49,11 @@ function initBuffers(){
 	
 	voxBuffers["stupid"]={};
 	voxBuffers["sparse"]={};
+	voxBuffers["sparseWithNormals"]={};
 	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
-	loadBufferData(voxBuffers["sparse"], voxData["sparse"]);
+		
+	loadBufferData(voxBuffers["sparse"], { vertices:voxData["sparse"].vertices, indices:voxData["sparse"].indices});	//copy all but normals!
+	loadBufferData(voxBuffers["sparseWithNormals"], voxData["sparse"]);
 
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -64,6 +67,11 @@ function initBuffers(){
 		bufferObj.vertexPositionBuffer = gl.createBuffer();
 		bufferArrayData(bufferObj.vertexPositionBuffer, sourceData.vertices, 3);
 		//stuff about normals etc present in 3-sph project got this from, removed here. 
+		
+		if (sourceData.normals){
+			bufferObj.vertexNormalBuffer = gl.createBuffer();
+			bufferArrayData(bufferObj.vertexNormalBuffer, sourceData.normals, 3);
+		}
 		
 		//triangles rather than strip, but no big deal- frag shader does most of the work!
 		bufferObj.vertexIndexBuffer = gl.createBuffer();
@@ -79,6 +87,11 @@ var shaderPrograms={};
 function initShaders(){
 	shaderPrograms.simple = loadShader( "shader-simple-vs", "shader-simple-fs",{
 					attributes:["aVertexPosition"],
+					uniforms:["uMVMatrix","uPMatrix"]
+					});
+					
+	shaderPrograms.withNormals = loadShader( "shader-withnormals-vs", "shader-color-fs",{
+					attributes:["aVertexPosition","aVertexNormal"],
 					uniforms:["uMVMatrix","uPMatrix"]
 					});
 }
@@ -101,7 +114,8 @@ voxdata = [];
 var guiParams={
 	box:false,
 	stupid:false,
-	sparse:true
+	sparse:true,
+	sparseWithNormals:false
 };
 
 function init(){
@@ -113,6 +127,7 @@ function init(){
 	gui.add(guiParams, "box");
 	gui.add(guiParams, "stupid");
 	gui.add(guiParams, "sparse");
+	gui.add(guiParams, "sparseWithNormals");
 	
 	canvas=document.getElementById("glcanvas");
 	gl=glcanvas.getContext("webgl");
@@ -151,17 +166,18 @@ function init(){
 		}
 	}
 	
-	//var voxFunction = sinesfunction;
+	var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
 	
 	noise.seed(Math.random());
-	var voxFunction = perlinfunction;
+	//var voxFunction = perlinfunction;
 	
 	makeVoxdataForFunc(voxFunction);	
 	
 	function perlinfunction(ii,jj,kk){
-		return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
+		//return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
+		return 10*noise.perlin3(ii/24,jj/12,kk/12) - 0.75*kk +20;	//landscape with 3d perlin surface
 	}
 	
 	function sinesfunction(ii,jj,kk){
@@ -351,8 +367,7 @@ function init(){
 		//can only do part of 64x64x64 this way
 		var vertices = [];
 		var indices = [];
-		
-		
+		var normals = [];
 		
 		//sparse version - no unused vertices.
 		var indexForGridPoint = [];
@@ -412,9 +427,7 @@ function init(){
 			var delta = 0.01;
 			
 			var centralPoint = voxFunction(ii,jj,kk);
-			
-			var potdiscrepancy
-			
+						
 			var gradX = (voxFunction(ii+delta,jj,kk)- centralPoint)/delta;
 			var gradY = (voxFunction(ii,jj+delta,kk)- centralPoint)/delta;
 			var gradZ = (voxFunction(ii,jj,kk+delta)- centralPoint)/delta;
@@ -426,8 +439,23 @@ function init(){
 			//to avoid /0 error add something to totalGradient
 		
 			var sharedPart = centralPoint / ( totalGradSq + 0.01);
-		
-			vertices.push((ii-sharedPart*gradX)/32, (jj-sharedPart*gradY)/32, (kk-sharedPart*gradZ)/32);			
+			
+			var newi = ii-sharedPart*gradX;
+			var newj = jj-sharedPart*gradY;
+			var newk = kk-sharedPart*gradZ;
+			
+			vertices.push(newi/32, newj/32, newk/32);
+
+			
+			//do another normal measurement at the displaced point
+			centralPoint = voxFunction(newi,newj,newk);
+			gradX = (voxFunction(newi+delta,newj,newk)- centralPoint)/delta;
+			gradY = (voxFunction(newi,newj+delta,newk)- centralPoint)/delta;
+			gradZ = (voxFunction(newi,newj,newk+delta)- centralPoint)/delta;
+			totalGradSq = gradX*gradX + gradY*gradY + gradZ*gradZ;
+			
+			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
+			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
@@ -494,6 +522,7 @@ function init(){
 		
 		return {
 			vertices:vertices,
+			normals:normals,
 			indices:indices
 		};
 	})();
@@ -507,6 +536,13 @@ function init(){
 	
 	initShaders();
 	initBuffers();
+	
+	//hack - draw with most complex shader prog. this binds buffers for all used attribute indices
+	//possibly, better to handle which are enabled when switching shader using enableVertexAttribArray / disableVertexAttribArray
+	//drawing with unneeded attribArrays bound still works
+	gl.useProgram(shaderPrograms.withNormals);
+	drawObjectFromBuffers(voxBuffers["sparseWithNormals"], shaderPrograms.withNormals);
+	
 	gl.enable(gl.DEPTH_TEST);
 	
 	requestAnimationFrame(drawScene);
@@ -518,16 +554,16 @@ function drawObjectFromBuffers(bufferObj, shaderProg, usesCubeMap){
 	drawObjectFromPreppedBuffers(bufferObj, shaderProg);
 }
 function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
+									
 	gl.enable(gl.CULL_FACE);
 	gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexPositionBuffer);
     gl.vertexAttribPointer(shaderProg.attributes.aVertexPosition, bufferObj.vertexPositionBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	
-	/*
 	if (bufferObj.vertexNormalBuffer && shaderProg.attributes.aVertexNormal){
 		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexNormalBuffer);
 		gl.vertexAttribPointer(shaderProg.attributes.aVertexNormal, bufferObj.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	}
-	*/
+	
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
 	/*
 	if (bufferObj.vertexTextureCoordBuffer){
@@ -581,6 +617,13 @@ function drawScene(drawTime){
 	if (guiParams.sparse){
 		drawObjectFromBuffers(voxBuffers["sparse"], activeShaderProgram);
 	}
+	
+	if (guiParams.sparseWithNormals){
+		activeShaderProgram = shaderPrograms.withNormals;
+		gl.useProgram(activeShaderProgram);
+		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
+	}
+	
 	mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
 	currentTime=drawTime;
 }
