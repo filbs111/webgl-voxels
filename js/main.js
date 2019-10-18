@@ -148,7 +148,8 @@ var guiParams={
 	box:false,
 	stupid:false,
 	sparse:true,
-	sparseWithNormals:false
+	sparseWithNormals:false,
+	constrainToBox:false
 };
 
 var stats;
@@ -355,6 +356,7 @@ function init(){
 	gui.add(guiParams, "stupid");
 	gui.add(guiParams, "sparse");
 	gui.add(guiParams, "sparseWithNormals");
+	gui.add(guiParams, "constrainToBox");
 	
 	canvas=document.getElementById("glcanvas");
 	gl=glcanvas.getContext("webgl");
@@ -920,6 +922,12 @@ var iterateMechanics = (function generateIterateMechanics(){
 		//camSpeed = camSpeed.map(function(val,ii){return camMove[ii];});
 		playerPosition = playerPosition.map(function(val,ii){return val+timeElapsed*camSpeed[ii];});
 		//playerPosition = playerPosition.map(function(val,ii){return val;});
+		
+		if (guiParams.constrainToBox){
+			for (var cc=0;cc<3;cc++){
+				playerPosition[cc] = Math.max(-2.0,Math.min(0.0,playerPosition[cc]));	//constraint values wierd. guess messed up matrix!
+			}
+		}
 		
 		setPlayerTranslation(playerPosition);
 	}
