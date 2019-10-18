@@ -342,7 +342,10 @@ var fromPolyModelFunction = (function generateFromPolyModelFunction(){
 })();
 
 
+var seedValue;
+
 function init(){
+	
 	stats = new Stats();
 	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
 	document.body.appendChild( stats.dom );
@@ -400,10 +403,8 @@ function init(){
 		*/
 	});
 	canvas.addEventListener("click", function(evt){
-		movePlayer([0,0,0.05]);	//basic click to move forward. TODO keyboard controls
+		//movePlayer([0,0,0.05]);	//basic click to move forward. TODO keyboard controls
 	});
-	
-	
 	
 	
 	crosssectionscanvas=document.getElementById("mycanvas");
@@ -444,9 +445,11 @@ function init(){
 	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
 	
-	//noise.seed(Math.random());var voxFunction = perlinfunction;
+	seedValue= Math.random();
+	console.log("seed: " + seedValue);
+	noise.seed(seedValue);var voxFunction = perlinfunction;
 	
-	var voxFunction = fromPolyModelFunction;
+	//var voxFunction = fromPolyModelFunction;
 	
 	makeVoxdataForFunc(voxFunction);	
 	
@@ -694,10 +697,10 @@ function init(){
 		console.log(indexForGridPoint);
 		
 		function addVertData(ii,jj,kk){
-			vertices.push(ii/32, jj/32, kk/32);
-			normals.push(0,0,0);
+		//	vertices.push(ii/32, jj/32, kk/32);
+		//	normals.push(0,0,0);
 				//^^ little faster for doing O(3) slow teapot thing
-/*	
+
 			//smooth vertices (TODO make 2 vert buffers and UI to switch between) 
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
@@ -734,7 +737,7 @@ function init(){
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
 			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
 			
-			*/
+			
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
@@ -824,7 +827,7 @@ function init(){
 	
 	gl.enable(gl.DEPTH_TEST);
 	
-	requestAnimationFrame(drawScene);
+	requestAnimationFrame(itMechanicsAndDrawScene);
 }
 
 //copied from 3sphere project. much of this unused since objs here don't have normals, textures
@@ -870,8 +873,66 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
 }
 
 var currentTime=0;
+
+//borrowed from rayMarcherTest
+var iterateMechanics = (function generateIterateMechanics(){
+	var newTime = Date.now();
+	var camSpeed = [0,0,0];
+	
+	window.addEventListener("keydown",function(e){
+		var keyCode=e.keyCode;
+		console.log(keyCode);
+		//WASD = 87,65,83,68
+		var camStep = 0.001;
+		
+		var camMove = [0,0,0];
+		if (keyCode == 87){camMove[2]+=camStep;}
+		if (keyCode == 83){camMove[2]-=camStep;}
+		if (keyCode == 65){camMove[0]+=camStep;}
+		if (keyCode == 68){camMove[0]-=camStep;}
+		
+		//add to camSpeed instead
+		/*
+		camSpeed[0] += camMove[0]*mvMatrix[0] + camMove[1]*mvMatrix[4] + + camMove[2]*mvMatrix[8];
+		camSpeed[1] += camMove[0]*mvMatrix[1] + camMove[1]*mvMatrix[5] + + camMove[2]*mvMatrix[9];
+		camSpeed[2] += camMove[0]*mvMatrix[2] + camMove[1]*mvMatrix[6] + + camMove[2]*mvMatrix[10];
+		*/
+		//transposed vs code from rayMarcherTest
+		camSpeed[0] += camMove[0]*mvMatrix[0] + camMove[1]*mvMatrix[1] + + camMove[2]*mvMatrix[2];
+		camSpeed[1] += camMove[0]*mvMatrix[4] + camMove[1]*mvMatrix[5] + + camMove[2]*mvMatrix[6];
+		camSpeed[2] += camMove[0]*mvMatrix[8] + camMove[1]*mvMatrix[9] + + camMove[2]*mvMatrix[10];
+		
+		var rollSpd = 0.05;
+		var rollAmt = 0;
+		if (keyCode == 69){rollAmt-=rollSpd;}
+		if (keyCode == 81){rollAmt+=rollSpd;}
+		rotatePlayer([0,0,-rollAmt]);	// - because suspect matrix inverted compared to rayMarcherTest...
+	});
+	
+	return function(){
+		var oldTime = newTime;
+		newTime = Date.now();
+		var timeElapsed = Math.min(newTime - oldTime, 1000);	//1s max
+		//exponential decay of speed towards desired speed. TODO proper movement integration, but doesn't really matter
+		var decayFactor = Math.pow(0.995,timeElapsed);
+		
+		camSpeed = camSpeed.map(function(val,ii){return val*decayFactor;});	//TODO keystate = target value... + (1-decayFactor)*camMove[ii];});
+		//camSpeed = camSpeed.map(function(val,ii){return camMove[ii];});
+		playerPosition = playerPosition.map(function(val,ii){return val+timeElapsed*camSpeed[ii];});
+		//playerPosition = playerPosition.map(function(val,ii){return val;});
+		
+		setPlayerTranslation(playerPosition);
+	}
+})();
+	
+function itMechanicsAndDrawScene(){
+	requestAnimationFrame(itMechanicsAndDrawScene);
+	iterateMechanics();
+	drawScene();
+}
+
 function drawScene(drawTime){
-	requestAnimationFrame(drawScene);
+	//requestAnimationFrame(drawScene);
 	
 	stats.end();
 	stats.begin();
