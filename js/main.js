@@ -155,38 +155,107 @@ var guiParams={
 var stats;
 
 
-//code borrowed from collision-detect-test project
-//this seems to be extremely inefficient - n^3 checks. could do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
-var fromPolyModelFunction = (function generateFromPolyModelFunction(){
+
+//voxel data. maybe better to have octree or similar. for now, use array of arrays. implementation maybe sparse. maybe good to use bits in a number (32 bit?)
+var blocksize = 64;	//64x64x64 = 512x512, which seems manageable to draw slices onto canvas
+var canvassize = 512;
+
+function loadColData(data, object){
+	//prep collision data for teapot
+	var faces = [];
+	var indices = object.indices;
+	for (var ii=0;ii<indices.length;ii+=3){
+		faces.push([indices[ii],indices[ii+1],indices[ii+2]]);
+	}
+	data.faces=faces;
+	
+	var tpVerts = object.vertices;
+	var verts=[];
+	for (var ii=0;ii<tpVerts.length;ii+=3){
+		verts.push([tpVerts[ii],tpVerts[ii+1],tpVerts[ii+2]]);
+	}
+	data.verts=verts;
+}
+
+function loadBlenderExport(meshToLoad){
+	return {
+		vertices: meshToLoad.vertices,
+		//normals: meshToLoad.normals,
+		//uvcoords: meshToLoad.texturecoords?meshToLoad.texturecoords[0]:false,
+		indices: [].concat.apply([],meshToLoad.faces)	//trick from https://www.youtube.com/watch?v=sM9n73-HiNA t~ 28:30
+	}	
+};
+
+
+// do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
+var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
+	
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
 	loadColData(teapotColData, teapotObject);
 	
-	function loadColData(data, object){
-		//prep collision data for teapot
-		var faces = [];
-		var indices = object.indices;
-		for (var ii=0;ii<indices.length;ii+=3){
-			faces.push([indices[ii],indices[ii+1],indices[ii+2]]);
+	//pregenerate and storedata.
+	//to use some assumptions used to generate smooth data, return bilinear smoothed data
+	var myVoxData = [];
+	for (var ii=0;ii<blocksize;ii++){
+		var slicedata = [];
+		myVoxData.push(slicedata);
+		for (var jj=0;jj<blocksize;jj++){
+			var stripdata = [];
+			slicedata.push(stripdata);
+			for (var kk=0;kk<blocksize;kk++){
+				//TODO generate strip data by single line collision
+				var collisionData = checkForCollisions([ii,jj,0],[ii,jj,64]);
+				collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
+				var zidx=0;
+				var nextCollision;
+				var fill=0;
+				while (nextCollision = collisionData.pop()){
+					while (zidx<nextCollision.z){
+						stripdata[zidx++]=fill;
+					}
+					fill = nextCollision.fill;	//transition to filled ie face downward or unfilled ie face up
+				}
+				while (zidx<blocksize){
+					stripdata[zidx++]=fill;
+				}
+			} 
 		}
-		data.faces=faces;
+	}
+	console.log("myVoxData:");
+		console.log(myVoxData);
+	
+	function checkForCollisions(raystart, rayend){
+		var collisionPoints = [];
 		
-		var tpVerts = object.vertices;
-		var verts=[];
-		for (var ii=0;ii<tpVerts.length;ii+=3){
-			verts.push([tpVerts[ii],tpVerts[ii+1],tpVerts[ii+2]]);
-		}
-		data.verts=verts;
+		var rayVec=[ rayend[0]-raystart[0], rayend[1]-raystart[1], rayend[2]-raystart[2] ];
+	
+		var faces = teapotColData.faces;
+		var verts = teapotColData.verts;
+		
+		
+		//return some dummy data
+		return [{fill:1,z:5},{fill:0,z:10}];
 	}
 	
-	function loadBlenderExport(meshToLoad){
-		return {
-			vertices: meshToLoad.vertices,
-			//normals: meshToLoad.normals,
-			//uvcoords: meshToLoad.texturecoords?meshToLoad.texturecoords[0]:false,
-			indices: [].concat.apply([],meshToLoad.faces)	//trick from https://www.youtube.com/watch?v=sM9n73-HiNA t~ 28:30
-		}	
-	};
+	return function(ii,jj,kk){
+		ii=Math.floor(ii);
+		jj=Math.floor(jj);
+		kk=Math.floor(kk);
+		
+		return myVoxData[ii][jj][kk];	//todo bilinear filter
+		
+		//return myVoxData[0][0][0]; //dummy, check works
+		//return ii+jj>20;
+	}
+})();
+
+//code borrowed from collision-detect-test project
+//this seems to be extremely inefficient - n^3 checks. 
+var fromPolyModelFunction = (function generateFromPolyModelFunction(){
+	var teapotColData={};	
+	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
+	loadColData(teapotColData, teapotObject);
 	
 	function checkForCollisions(raystart, rayend){
 		var collisionPoints = [];
@@ -413,10 +482,6 @@ function init(){
 	ctx=crosssectionscanvas.getContext("2d");
 	
 	
-	//voxel data. maybe better to have octree or similar. for now, use array of arrays. implementation maybe sparse. maybe good to use bits in a number (32 bit?)
-	var blocksize = 64;	//64x64x64 = 512x512, which seems manageable to draw slices onto canvas
-	var canvassize = 512;
-	
 	crosssectionscanvas.width = canvassize;
 	crosssectionscanvas.height = canvassize;
 	
@@ -449,9 +514,10 @@ function init(){
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
-	noise.seed(seedValue);var voxFunction = perlinfunction;
+	//noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
+	var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);	
 	
@@ -699,10 +765,10 @@ function init(){
 		console.log(indexForGridPoint);
 		
 		function addVertData(ii,jj,kk){
-		//	vertices.push(ii/32, jj/32, kk/32);
-		//	normals.push(0,0,0);
+			vertices.push(ii/32, jj/32, kk/32);
+			normals.push(0,0,0);
 				//^^ little faster for doing O(3) slow teapot thing
-
+/*
 			//smooth vertices (TODO make 2 vert buffers and UI to switch between) 
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
@@ -738,7 +804,7 @@ function init(){
 			
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
 			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
-			
+			*/
 			
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
