@@ -8,6 +8,7 @@ var voxdata;
 
 var basicCubeData = {
 	vertices : [
+	/*
 		0,0,0,	//0
 		0,0,1,	//1
 		0,1,0,	//2
@@ -16,6 +17,17 @@ var basicCubeData = {
 		1,0,1,	//5
 		1,1,0,	//6
 		1,1,1],	//7
+		*/
+		
+		0,0,0,	//0
+		0,0,2,	//1
+		0,2,0,	//2
+		0,2,2,	//3
+		2,0,0,	//4
+		2,0,2,	//5
+		2,2,0,	//6
+		2,2,2],	//7
+		
 	indices: [	//these faces "inside-out" for easier testing
 		0,2,1,	//z=0
 		3,1,2,
@@ -141,6 +153,195 @@ var guiParams={
 
 var stats;
 
+
+//code borrowed from collision-detect-test project
+//this seems to be extremely inefficient - n^3 checks. could do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
+var fromPolyModelFunction = (function generateFromPolyModelFunction(){
+	var teapotColData={};	
+	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
+	loadColData(teapotColData, teapotObject);
+	
+	function loadColData(data, object){
+		//prep collision data for teapot
+		var faces = [];
+		var indices = object.indices;
+		for (var ii=0;ii<indices.length;ii+=3){
+			faces.push([indices[ii],indices[ii+1],indices[ii+2]]);
+		}
+		data.faces=faces;
+		
+		var tpVerts = object.vertices;
+		var verts=[];
+		for (var ii=0;ii<tpVerts.length;ii+=3){
+			verts.push([tpVerts[ii],tpVerts[ii+1],tpVerts[ii+2]]);
+		}
+		data.verts=verts;
+	}
+	
+	function loadBlenderExport(meshToLoad){
+		return {
+			vertices: meshToLoad.vertices,
+			//normals: meshToLoad.normals,
+			//uvcoords: meshToLoad.texturecoords?meshToLoad.texturecoords[0]:false,
+			indices: [].concat.apply([],meshToLoad.faces)	//trick from https://www.youtube.com/watch?v=sM9n73-HiNA t~ 28:30
+		}	
+	};
+	
+	function checkForCollisions(raystart, rayend){
+		var collisionPoints = [];
+		//cross product rayVec with edge to ray, dot with edge vec
+		//this is triple product, so can do in different order. see http://www.mathphysics.com/pde/vectorid.html
+		
+		var rayVec=[ rayend[0]-raystart[0], rayend[1]-raystart[1], rayend[2]-raystart[2] ];
+	
+		var faces = teapotColData.faces;
+		var verts = teapotColData.verts;
+		
+		collidedFaces=0;
+		
+		for (var ff=0;ff<faces.length;ff++){
+			var thisTri = faces[ff];
+			
+			//var isInside = true;
+			var signsSum=0;
+			for (var vv=0;vv<3;vv++){
+				var thisVert = verts[thisTri[vv]];
+				var nextv = (vv+1) % 3;
+				var nextVert = verts[thisTri[nextv]];
+				var displacement = [raystart[0]-thisVert[0],raystart[1]-thisVert[1],raystart[2]-thisVert[2]];
+				var edgevector = [nextVert[0]-thisVert[0],nextVert[1]-thisVert[1],nextVert[2]-thisVert[2]];
+				var crossProd = [ displacement[1]*edgevector[2] - displacement[2]*edgevector[1],
+									displacement[2]*edgevector[0] - displacement[0]*edgevector[2],
+									displacement[0]*edgevector[1] - displacement[1]*edgevector[0]];
+				
+				var dotProd = crossProd[0]*rayVec[0] + crossProd[1]*rayVec[1] + crossProd[2]*rayVec[2];
+				
+				//if (dotProd < 0){isInside=false;}
+				signsSum+=dotProd/Math.abs(dotProd);
+			}
+			//isInsideTri[tt] = isInside;
+			//if (isInside){
+			if (Math.abs(signsSum)>2.5){	//should need 3, but unsure how numerical error works
+				collidedFaces++;
+				
+				/*
+				
+				//draw simple collision point. 
+				//calculate surface normal. 
+				
+				//plane defined by point-on-surface.normal = constant.
+				//, can be expressed as Ax+By+Cy=D
+				
+				// ray:
+				//raystart + t * rayDirection
+				
+				//solve for intersection:
+				// norm.raystart + t*norm.rayDirection = D = norm.point-on-surface
+				// =>
+				// t = (norm.point-on-surface - norm.raystart)/norm.rayDirection
+				// t = norm.(point-on-surface - raystart) / norm.rayDirection
+				
+				//collision point = 
+				// raystart + rayDirection * (norm.(point-on-surface - raystart) / norm.rayDirection)
+				
+				//this is undefined if norm.rayDirection = 0 (ray is perpendicular to surface normal)
+				// note that no need to normalise surface normal
+				*/
+				
+				var vert0 = verts[thisTri[0]];
+				var vert1 = verts[thisTri[1]]
+				var vert2 = verts[thisTri[2]]
+				
+				/*
+				var displacement = [raystart[0]-vert0[0],raystart[1]-vert0[1],raystart[2]-vert0[2]];
+				
+				*/
+				//calc normal
+				var dir1 = [ vert1[0]-vert0[0], vert1[1]-vert0[1], vert1[2]-vert0[2] ];
+				var dir2 = [ vert2[0]-vert0[0], vert2[1]-vert0[1], vert2[2]-vert0[2] ];
+				var faceNormal = [ dir1[1]*dir2[2] - dir1[2]*dir2[1],
+									dir1[2]*dir2[0] - dir1[0]*dir2[2],
+									dir1[0]*dir2[1] - dir1[1]*dir2[0]];
+				
+				//normalise face normal???
+				var faceNormLenSq = faceNormal[0]*faceNormal[0] + faceNormal[1]*faceNormal[1] + faceNormal[2]*faceNormal[2]; 
+				var faceNormInvLen = 1/Math.sqrt(faceNormLenSq);
+				faceNormal[0]*=faceNormInvLen;
+				faceNormal[1]*=faceNormInvLen;
+				faceNormal[2]*=faceNormInvLen;
+				
+				/*
+				var normDotRayDir = faceNormal[0]*rayVec[0]+ faceNormal[1]*rayVec[1]+ faceNormal[2]*rayVec[2];
+				var normDotDisp = faceNormal[0]*displacement[0]+ faceNormal[1]*displacement[1]+ faceNormal[2]*displacement[2];
+				var tval = -normDotDisp/normDotRayDir;	//- sign because point-on-surface calculated -ve	TODO check for 0
+				var collisionPoint = [ raystart[0] + rayVec[0]*tval,
+										raystart[1] + rayVec[1]*tval,
+										raystart[2] + rayVec[2]*tval];
+						//TODO WHAT IS THIS POINT?!!
+				
+				
+				//gl.uniform4fv(shaderProgramColored.uniforms.uColor, [0.0, 1.0, 0.0, 1.0]);
+//				drawSphere(collisionPoint);
+		
+				//simple ray/plane intersection maybe insufficient, because if ray is in plane, this point is undefined
+				//do "closest approach" for space squashed about face normal - basically collision with the closest possible oblate ellipsoid centred on face. will result in bit odd glancing collision, but handle ray in plane case acceptably, without requiring special case.
+				
+				
+				// displacement = raystart - faceCentre
+				// stretchedDisplacement = displacement + displacement.normal * const * normal
+				// stretchedRayvec = rayvec + rayvec.normal * const *normal
+				
+				//formulate in t (fraction of rayvec), move this fraction in unstretched space
+				
+				// t = stretchedDisplacement.stretchedRayvec / stretchedRayvec.stretchedRayvec (?)
+				
+				var normSq = faceNormal[0]*faceNormal[0] + faceNormal[1]*faceNormal[1] + faceNormal[2]*faceNormal[2];
+				
+				var const1 = 1000/normSq;	//a big number
+				
+				var dispDotNormTimesConst1 = const1 * ( displacement[0]*faceNormal[0]+ displacement[1]*faceNormal[1]+ displacement[2]*faceNormal[2] );
+				
+				var stretchedDisplacement = [ displacement[0] + dispDotNormTimesConst1*faceNormal[0],
+												displacement[1] + dispDotNormTimesConst1*faceNormal[1],
+												displacement[2] + dispDotNormTimesConst1*faceNormal[2]];
+				
+				var rayvecDotNormTimesConst1 = const1 * ( rayVec[0]*faceNormal[0]+ rayVec[1]*faceNormal[1]+ rayVec[2]*faceNormal[2] );
+				
+				var stretchedRayvec = [ rayVec[0] + rayvecDotNormTimesConst1*faceNormal[0],
+										rayVec[1] + rayvecDotNormTimesConst1*faceNormal[1],
+										rayVec[2] + rayvecDotNormTimesConst1*faceNormal[2]];
+				
+				var tt = ( stretchedDisplacement[0]*stretchedRayvec[0] + stretchedDisplacement[1]*stretchedRayvec[1] + stretchedDisplacement[2]*stretchedRayvec[2])/ ( stretchedRayvec[0]*stretchedRayvec[0] + stretchedRayvec[1]*stretchedRayvec[1] + stretchedRayvec[2]*stretchedRayvec[2]);
+				 
+				var colpoint = [ raystart[0] - tt*rayVec[0],
+								raystart[1] - tt*rayVec[1],
+								raystart[2] - tt*rayVec[2]];
+						*/
+				//collisionPoints.push(colpoint);
+				//collisionPoints.push(true);	//just count a point. TODO check whether within line limits
+				
+				//to do this, for this face, calculate the normal, dot with difference between point on face and line start/end points. signs should be different (ie multiple should be negative)
+				
+				var dotOne = faceNormal[0]*(raystart[0]-vert0[0]) + faceNormal[1]*(raystart[1]-vert0[1]) + faceNormal[2]*(raystart[2]-vert0[2]);	//TODO simplifying with known start/end (eg fix to 0,0,0)
+				var dotTwo = faceNormal[0]*(rayend[0]-vert0[0]) + faceNormal[1]*(rayend[1]-vert0[1]) + faceNormal[2]*(rayend[2]-vert0[2]);
+					//TODO simplify by calculating facenormal dot vert0 separately
+				if (dotOne*dotTwo > 0){
+					collisionPoints.push(true);
+				}
+			}
+			
+		};
+		return collisionPoints;	//TODO don't bother with points - just tell if collided		
+	}
+	
+	return function(ii,jj,kk){
+			//TODO should above stuff go inside an inner IIFE so unneeded stuff falls out of scope?
+		var numcollisionpoints = checkForCollisions([(ii-32)/32,(jj-16)/32,(kk-32)/32],[0.02,0.5,0.01]).length;	//tiny extra 0.01,0.02 because suspect that rays through edges causing bad face count evenness
+		return numcollisionpoints%2 == 0;
+	}
+})();
+
+
 function init(){
 	stats = new Stats();
 	stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -243,8 +444,9 @@ function init(){
 	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
 	
-	noise.seed(Math.random());
-	var voxFunction = perlinfunction;
+	//noise.seed(Math.random());var voxFunction = perlinfunction;
+	
+	var voxFunction = fromPolyModelFunction;
 	
 	makeVoxdataForFunc(voxFunction);	
 	
@@ -492,8 +694,10 @@ function init(){
 		console.log(indexForGridPoint);
 		
 		function addVertData(ii,jj,kk){
-			//vertices.push(ii/32, jj/32, kk/32);
-			
+			vertices.push(ii/32, jj/32, kk/32);
+			normals.push(0,0,0);
+				//^^ little faster for doing O(3) slow teapot thing
+/*	
 			//smooth vertices (TODO make 2 vert buffers and UI to switch between) 
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
@@ -529,6 +733,8 @@ function init(){
 			
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
 			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
+			
+			*/
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
