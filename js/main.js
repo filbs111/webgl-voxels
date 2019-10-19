@@ -225,11 +225,13 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 			slicedata.push(stripdata);
 		//	for (var kk=0;kk<blocksize;kk++){
 				//TODO generate strip data by single line collision
-				var collisionData = checkForCollisions([(ii-32)/30+0.001,(jj-16)/30+0.001,-1],[(ii-32)/30+0.001,(jj-16)/30+0.001,1]);	//+0.001 so misses edges (TODO handle edge case)
+				var collisionData = checkForCollisions([(ii-30)/31+0.0001,(jj-16)/31+0.0001,-1],[(ii-30)/31+0.0001,(jj-16)/31+0.0001,1]);	//+0.001 so misses edges (TODO handle edge case)
+					//TODO rotate teapot 45 deg to fit into box better
+				
 				collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
 				var zidx=0;
 				var nextCollision;
-				var fill=0;
+				var fill=-1;
 				while (nextCollision = collisionData.pop()){
 					while (zidx<nextCollision.z){
 						stripdata[zidx++]=fill;
@@ -297,7 +299,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 				var facePlaneDataPoint = facePlaneData[ff];
 				var zCollisionPoint= facePlaneDataPoint.centreZ + facePlaneDataPoint.gradX*raystart[0] + facePlaneDataPoint.gradY*raystart[1];
 				
-				collisionPoints.push({z:(zCollisionPoint+1)*32, fill:signsSum<0?0:1});	//TODO check polarity
+				collisionPoints.push({z:(zCollisionPoint+1)*32, fill:signsSum<0?-1:1});	//TODO check polarity
 			}
 		}
 		
@@ -604,6 +606,9 @@ function init(){
 	//var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
+	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
+	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
+	var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
@@ -611,7 +616,7 @@ function init(){
 	//noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
-	var voxFunction = fromPolyModelFunctionFast;
+	//var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);	
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
@@ -647,6 +652,52 @@ function init(){
 		
 		return ((eggboxPot - (kk/2 - 15))+3) * ((ballPot/2)+3) - 9;	//smoother field
 		
+	}
+	
+	function bilinearFilterBinaryFunctionGen(smoothFunction){	//generate a function that returns 1,-1 for occupied/unoccupied grid points, bilinear smoothed value between
+		//TODO pregenerate all data (64x64x64) inside function - saves doing 8 function evaluations every time run the returned function
+		return function(ii,jj,kk){
+			iif=Math.floor(ii);
+			jjf=Math.floor(jj);
+			kkf=Math.floor(kk);
+			//return myVoxData[iif][jjf][kkf];	//todo bilinear filter
+			
+			//remainder
+			var iir = ii-iif;
+			var jjr = jj-jjf;
+			var kkr = kk-kkf;
+			
+			//bilinear filter version (bit slower. could code dedicated gradient extraction more efficiently)
+			if (iif<63 && jjf<63 & kkf<63){
+				var sum=0;
+				/*
+				sum+= myVoxData[iif][jjf][kkf]*(1-iir)*(1-jjr)*(1-kkr);
+				sum+= myVoxData[iif][jjf][kkf+1]*(1-iir)*(1-jjr)*kkr;
+				sum+= myVoxData[iif][jjf+1][kkf]*(1-iir)*jjr*(1-kkr);
+				sum+= myVoxData[iif][jjf+1][kkf+1]*(1-iir)*jjr*kkr;
+				sum+= myVoxData[iif+1][jjf][kkf]*iir*(1-jjr)*(1-kkr);
+				sum+= myVoxData[iif+1][jjf][kkf+1]*iir*(1-jjr)*kkr;
+				sum+= myVoxData[iif+1][jjf+1][kkf]*iir*jjr*(1-kkr);
+				sum+= myVoxData[iif+1][jjf+1][kkf+1]*iir*jjr*kkr;
+				*/
+				sum+= (smoothFunction(iif,jjf,kkf) <0 ? -1:1)*(1-iir)*(1-jjr)*(1-kkr);
+				sum+= (smoothFunction(iif,jjf,kkf+1) <0 ? -1:1) *(1-iir)*(1-jjr)*kkr ;
+				sum+= (smoothFunction(iif,jjf+1,kkf) <0 ? -1:1) *(1-iir)*jjr*(1-kkr);
+				sum+= (smoothFunction(iif,jjf+1,kkf+1) <0 ? -1:1)*(1-iir)*jjr*kkr;
+				sum+= (smoothFunction(iif+1,jjf,kkf) <0 ? -1:1)*iir*(1-jjr)*(1-kkr) ;
+				sum+= (smoothFunction(iif+1,jjf,kkf+1) <0 ? -1:1)*iir*(1-jjr)*kkr;
+				sum+= (smoothFunction(iif+1,jjf+1,kkf) <0 ? -1:1)*iir*jjr*(1-kkr);
+				sum+= (smoothFunction(iif+1,jjf+1,kkf+1) <0? -1:1)*iir*jjr*kkr;
+				return sum;
+			}else{
+				//strictly there are more edge cases but don't care for now
+				//maybe this never gets hit... 
+				//return myVoxData[63][63][63];
+				return smoothFunction(63,63,63);
+				console.log("EDGE CASE HIT");
+			}
+			
+		}
 	}
 	
 	console.log(voxdata);
@@ -872,10 +923,10 @@ function init(){
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
 			var delta = 0.01;
-			var fudgeFactor = 0.5;	//less than 1 to avoid overshoot
+			var fudgeFactor = 0.7;	//less than 1 to avoid overshoot
 			var centralPoint,gradX,gradY,gradZ,totalGradSq,sharedPart;
 			
-			for (var iter=0;iter<4;iter++){
+			for (var iter=0;iter<3;iter++){
 				centralPoint = voxFunction(ii,jj,kk);
 							
 				gradX = (voxFunction(ii+delta,jj,kk)- centralPoint)/delta;
@@ -888,7 +939,7 @@ function init(){
 				//move by something like (discrepancy / totalGradent)*(gradientVector/totalGradient)
 				//to avoid /0 error add something to totalGradient
 			
-				sharedPart = (centralPoint-0.5) / ( totalGradSq + 0.001);
+				sharedPart = centralPoint / ( totalGradSq + 0.001);
 				ii = ii-sharedPart*gradX*fudgeFactor;
 				jj = jj-sharedPart*gradY*fudgeFactor;
 				kk = kk-sharedPart*gradZ*fudgeFactor;
