@@ -189,7 +189,7 @@ function loadBlenderExport(meshToLoad){
 
 // do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
 //var fromPolyModelFunctionFast = (	//generating this func takes a long time since creates data. only call if needed
-function generateFromPolyModelFunction(){
+function generateFromPolyModelFunctionFast(){
 	
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
@@ -197,6 +197,23 @@ function generateFromPolyModelFunction(){
 	
 	var faces = teapotColData.faces;
 	var verts = teapotColData.verts;
+	
+	//precalculate face normal data
+	var facePlaneData=[];
+	for (var ff=0;ff<faces.length;ff++){
+		var thisTri = faces[ff];
+		
+		var triPoints = [verts[thisTri[0]], verts[thisTri[1]], verts[thisTri[2]]];
+		var edgeVecs = [[triPoints[1][0] - triPoints[0][0], triPoints[1][1] - triPoints[0][1], triPoints[1][2] - triPoints[0][2]],
+						[triPoints[2][0] - triPoints[0][0], triPoints[2][1] - triPoints[0][1], triPoints[2][2] - triPoints[0][2]]];
+		var normVector = [edgeVecs[1][1]*edgeVecs[0][2] - edgeVecs[1][2]*edgeVecs[0][1],
+							edgeVecs[1][2]*edgeVecs[0][0] - edgeVecs[1][0]*edgeVecs[0][2],
+							edgeVecs[1][0]*edgeVecs[0][1] - edgeVecs[1][1]*edgeVecs[0][0]];
+		
+		facePlaneData.push({centreZ:triPoints[0][2] + ((normVector[0]*triPoints[0][0] + normVector[1]*triPoints[0][1])/normVector[2]),
+							gradX: -normVector[0]/normVector[2],	
+							gradY: -normVector[1]/normVector[2]});	//TODO check that gradients aren't /0
+	}
 	
 	//pregenerate and store data.
 	//to use some assumptions used to generate smooth data, return bilinear smoothed data
@@ -207,7 +224,7 @@ function generateFromPolyModelFunction(){
 		for (var jj=0;jj<blocksize;jj++){
 			var stripdata = [];
 			slicedata.push(stripdata);
-			for (var kk=0;kk<blocksize;kk++){
+		//	for (var kk=0;kk<blocksize;kk++){
 				//TODO generate strip data by single line collision
 				var collisionData = checkForCollisions([(ii-32)/32+0.001,(jj-16)/32+0.001,-1],[(ii-32)/32+0.001,(jj-16)/32+0.001,1]);	//+0.001 so misses edges (TODO handle edge case)
 				collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
@@ -223,7 +240,7 @@ function generateFromPolyModelFunction(){
 				while (zidx<blocksize){
 					stripdata[zidx++]=fill;
 				}
-			} 
+		//	} 
 		}
 	}
 	console.log("myVoxData:");
@@ -266,7 +283,7 @@ function generateFromPolyModelFunction(){
 				//looking for z for a line of fixed x,y
 				// equation of plane q-p dot N = 0
 				// -> qz-pz = (Nx*(qx-px) + Ny*(qy-py) ) / Nz
-				
+				/*
 				var triPoints = [verts[thisTri[0]], verts[thisTri[1]], verts[thisTri[2]]];
 				var edgeVecs = [[triPoints[1][0] - triPoints[0][0], triPoints[1][1] - triPoints[0][1], triPoints[1][2] - triPoints[0][2]],
 								[triPoints[2][0] - triPoints[0][0], triPoints[2][1] - triPoints[0][1], triPoints[2][2] - triPoints[0][2]]];
@@ -275,8 +292,11 @@ function generateFromPolyModelFunction(){
 									edgeVecs[1][0]*edgeVecs[0][1] - edgeVecs[1][1]*edgeVecs[0][0]];
 				var zCollisionPoint= triPoints[0][2] - ((normVector[0]*(raystart[0]-triPoints[0][0]) + normVector[1]*(raystart[1]-triPoints[0][1]))/normVector[2]);
 						// by calculation, - should be + above, presumably some mistake. 
+				*/
+				//precalc all this stuff once for each tri of object (rather than inside here every time collides with a ray). basically want x,y gradient and height at x,y=0 for each (non vertical) face.
 				
-				//TODO precalc all this stuff once for each tri of object (rather than inside here every time collides with a ray). basically want x,y gradient and height at x,y=0 for each (non vertical) face.
+				var facePlaneDataPoint = facePlaneData[ff];
+				var zCollisionPoint= facePlaneDataPoint.centreZ + facePlaneDataPoint.gradX*raystart[0] + facePlaneDataPoint.gradY*raystart[1];
 				
 				collisionPoints.push({z:(zCollisionPoint+1)*32, fill:signsSum<0?0:1});	//TODO check polarity
 			}
@@ -566,7 +586,7 @@ function init(){
 	//var voxFunction = fromPolyModelFunction;
 	
 	//var fromPolyModelFunctionFast = ;
-	var voxFunction = generateFromPolyModelFunction();
+	var voxFunction = generateFromPolyModelFunctionFast();
 	
 	
 	makeVoxdataForFunc(voxFunction);	
