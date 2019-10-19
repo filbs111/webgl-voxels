@@ -194,7 +194,10 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
 	loadColData(teapotColData, teapotObject);
 	
-	//pregenerate and storedata.
+	var faces = teapotColData.faces;
+	var verts = teapotColData.verts;
+	
+	//pregenerate and store data.
 	//to use some assumptions used to generate smooth data, return bilinear smoothed data
 	var myVoxData = [];
 	for (var ii=0;ii<blocksize;ii++){
@@ -205,7 +208,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
 			slicedata.push(stripdata);
 			for (var kk=0;kk<blocksize;kk++){
 				//TODO generate strip data by single line collision
-				var collisionData = checkForCollisions([ii,jj,0],[ii,jj,64]);
+				var collisionData = checkForCollisions([(ii-32)/32+0.001,(jj-16)/32+0.001,-1],[(ii-32)/32+0.001,(jj-16)/32+0.001,1]);	//+0.001 so misses edges (TODO handle edge case)
 				collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
 				var zidx=0;
 				var nextCollision;
@@ -227,26 +230,59 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
 	
 	function checkForCollisions(raystart, rayend){
 		var collisionPoints = [];
-		
 		var rayVec=[ rayend[0]-raystart[0], rayend[1]-raystart[1], rayend[2]-raystart[2] ];
 	
-		var faces = teapotColData.faces;
-		var verts = teapotColData.verts;
-		
+		for (var ff=0;ff<faces.length;ff++){
+			var thisTri = faces[ff];
+			
+			var signsSum=0;
+			for (var vv=0;vv<3;vv++){
+				var thisVert = verts[thisTri[vv]];
+				var nextv = (vv+1) % 3;
+				var nextVert = verts[thisTri[nextv]];
+				var displacement = [raystart[0]-thisVert[0],raystart[1]-thisVert[1],raystart[2]-thisVert[2]];
+				var edgevector = [nextVert[0]-thisVert[0],nextVert[1]-thisVert[1],nextVert[2]-thisVert[2]];
+				var crossProd = [ displacement[1]*edgevector[2] - displacement[2]*edgevector[1],
+									displacement[2]*edgevector[0] - displacement[0]*edgevector[2],
+									displacement[0]*edgevector[1] - displacement[1]*edgevector[0]];
+				var dotProd = crossProd[0]*rayVec[0] + crossProd[1]*rayVec[1] + crossProd[2]*rayVec[2];
+				signsSum+=dotProd/Math.abs(dotProd);
+				
+				//TODO simplify above knowing that rayVec x,y components =0
+			}
+			if (Math.abs(signsSum)>2.5){	//should need 3, but unsure how numerical error works
+				
+				//point on plane P
+				//plane normal N 
+				//looking for z for a line of fixed x,y
+				// equation of plane q-p dot N = 0
+				// -> qz-pz = (Nx*(qx-px) + Ny*(qy-py) ) / Nz
+				
+				var triPoints = [verts[thisTri[0]], verts[thisTri[1]], verts[thisTri[2]]];
+				var edgeVecs = [[triPoints[1][0] - triPoints[0][0], triPoints[1][1] - triPoints[0][1], triPoints[1][2] - triPoints[0][2]],
+								[triPoints[2][0] - triPoints[0][0], triPoints[2][1] - triPoints[0][1], triPoints[2][2] - triPoints[0][2]]];
+				var normVector = [edgeVecs[1][1]*edgeVecs[0][2] - edgeVecs[1][2]*edgeVecs[0][1],
+									edgeVecs[1][2]*edgeVecs[0][0] - edgeVecs[1][0]*edgeVecs[0][2],
+									edgeVecs[1][0]*edgeVecs[0][1] - edgeVecs[1][1]*edgeVecs[0][0]];
+				var zCollisionPoint= triPoints[0][2] - ((normVector[0]*(raystart[0]-triPoints[0][0]) + normVector[1]*(raystart[1]-triPoints[0][1]))/normVector[2]);
+						// by calculation, - should be + above, presumably some mistake. 
+				
+				//TODO precalc all this stuff once for each tri of object (rather than inside here every time collides with a ray). basically want x,y gradient and height at x,y=0 for each (non vertical) face.
+				
+				collisionPoints.push({z:(zCollisionPoint+1)*32, fill:signsSum<0?0:1});	//TODO check polarity
+			}
+		}
 		
 		//return some dummy data
-		return [{fill:1,z:5},{fill:0,z:10}];
+		//return [{fill:1,z:5},{fill:0,z:10}];
+		return collisionPoints;
 	}
 	
 	return function(ii,jj,kk){
 		ii=Math.floor(ii);
 		jj=Math.floor(jj);
 		kk=Math.floor(kk);
-		
 		return myVoxData[ii][jj][kk];	//todo bilinear filter
-		
-		//return myVoxData[0][0][0]; //dummy, check works
-		//return ii+jj>20;
 	}
 })();
 
