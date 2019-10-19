@@ -188,7 +188,8 @@ function loadBlenderExport(meshToLoad){
 
 
 // do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
-var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
+//var fromPolyModelFunctionFast = (	//generating this func takes a long time since creates data. only call if needed
+function generateFromPolyModelFunction(){
 	
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
@@ -226,7 +227,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
 		}
 	}
 	console.log("myVoxData:");
-		console.log(myVoxData);
+	console.log(myVoxData);
 	
 	function checkForCollisions(raystart, rayend){
 		var collisionPoints = [];
@@ -240,15 +241,23 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
 				var thisVert = verts[thisTri[vv]];
 				var nextv = (vv+1) % 3;
 				var nextVert = verts[thisTri[nextv]];
+				
+				/*
 				var displacement = [raystart[0]-thisVert[0],raystart[1]-thisVert[1],raystart[2]-thisVert[2]];
 				var edgevector = [nextVert[0]-thisVert[0],nextVert[1]-thisVert[1],nextVert[2]-thisVert[2]];
 				var crossProd = [ displacement[1]*edgevector[2] - displacement[2]*edgevector[1],
 									displacement[2]*edgevector[0] - displacement[0]*edgevector[2],
 									displacement[0]*edgevector[1] - displacement[1]*edgevector[0]];
 				var dotProd = crossProd[0]*rayVec[0] + crossProd[1]*rayVec[1] + crossProd[2]*rayVec[2];
-				signsSum+=dotProd/Math.abs(dotProd);
+				*/
 				
-				//TODO simplify above knowing that rayVec x,y components =0
+				//simplify above given that rayVec x,y components =0
+				var displacement = [raystart[0]-thisVert[0],raystart[1]-thisVert[1]];
+				var edgevector = [nextVert[0]-thisVert[0],nextVert[1]-thisVert[1]];
+				var crossProdZ = displacement[0]*edgevector[1] - displacement[1]*edgevector[0];
+				var dotProd = crossProdZ*rayVec[2];
+				
+				signsSum+=dotProd/Math.abs(dotProd);
 			}
 			if (Math.abs(signsSum)>2.5){	//should need 3, but unsure how numerical error works
 				
@@ -284,7 +293,8 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunction(){
 		kk=Math.floor(kk);
 		return myVoxData[ii][jj][kk];	//todo bilinear filter
 	}
-})();
+}
+//)();
 
 //code borrowed from collision-detect-test project
 //this seems to be extremely inefficient - n^3 checks. 
@@ -550,12 +560,17 @@ function init(){
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
+	var genStartTime = Date.now();
 	//noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
-	var voxFunction = fromPolyModelFunctionFast;
+	
+	//var fromPolyModelFunctionFast = ;
+	var voxFunction = generateFromPolyModelFunction();
+	
 	
 	makeVoxdataForFunc(voxFunction);	
+	console.log("Time taken to generate: " + (Date.now()-genStartTime));
 	
 	function perlinfunction(ii,jj,kk){
 		//return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
