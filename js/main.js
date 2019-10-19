@@ -131,7 +131,7 @@ rotatePlayer([0,0,0]);	//hack to cause position update in matrix?
 
 //mat4.set(mvMatrix, playerMatrix);	//??
 
-var mainCamFov = 105;	//degrees.
+var mainCamFov = 95;	//degrees.
 
 var mouseInfo = {
 	x:0,
@@ -188,8 +188,7 @@ function loadBlenderExport(meshToLoad){
 
 
 // do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
-//var fromPolyModelFunctionFast = (	//generating this func takes a long time since creates data. only call if needed
-function generateFromPolyModelFunctionFast(){
+var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
@@ -226,7 +225,7 @@ function generateFromPolyModelFunctionFast(){
 			slicedata.push(stripdata);
 		//	for (var kk=0;kk<blocksize;kk++){
 				//TODO generate strip data by single line collision
-				var collisionData = checkForCollisions([(ii-32)/32+0.001,(jj-16)/32+0.001,-1],[(ii-32)/32+0.001,(jj-16)/32+0.001,1]);	//+0.001 so misses edges (TODO handle edge case)
+				var collisionData = checkForCollisions([(ii-32)/30+0.001,(jj-16)/30+0.001,-1],[(ii-32)/30+0.001,(jj-16)/30+0.001,1]);	//+0.001 so misses edges (TODO handle edge case)
 				collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
 				var zidx=0;
 				var nextCollision;
@@ -308,13 +307,41 @@ function generateFromPolyModelFunctionFast(){
 	}
 	
 	return function(ii,jj,kk){
-		ii=Math.floor(ii);
-		jj=Math.floor(jj);
-		kk=Math.floor(kk);
-		return myVoxData[ii][jj][kk];	//todo bilinear filter
+		//ii+=0.5;	//??
+		//jj+=0.5;	//??
+		//kk+=0.5;	//??
+		
+		iif=Math.floor(ii);
+		jjf=Math.floor(jj);
+		kkf=Math.floor(kk);
+		//return myVoxData[iif][jjf][kkf];	//todo bilinear filter
+		
+		//remainder
+		var iir = ii-iif;
+		var jjr = jj-jjf;
+		var kkr = kk-kkf;
+		
+		//bilinear filter version (bit slower. could code dedicated gradient extraction more efficiently)
+		if (iif<63 && jjf<63 & kkf<63){
+			var sum=0;
+			sum+= myVoxData[iif][jjf][kkf]*(1-iir)*(1-jjr)*(1-kkr);
+			sum+= myVoxData[iif][jjf][kkf+1]*(1-iir)*(1-jjr)*kkr;
+			sum+= myVoxData[iif][jjf+1][kkf]*(1-iir)*jjr*(1-kkr);
+			sum+= myVoxData[iif][jjf+1][kkf+1]*(1-iir)*jjr*kkr;
+			sum+= myVoxData[iif+1][jjf][kkf]*iir*(1-jjr)*(1-kkr);
+			sum+= myVoxData[iif+1][jjf][kkf+1]*iir*(1-jjr)*kkr;
+			sum+= myVoxData[iif+1][jjf+1][kkf]*iir*jjr*(1-kkr);
+			sum+= myVoxData[iif+1][jjf+1][kkf+1]*iir*jjr*kkr;
+			return sum;
+		}else{
+			//strictly there are more edge cases but don't care for now
+			//maybe this never gets hit... 
+			return myVoxData[63][63][63];
+			console.log("EDGE CASE HIT");
+		}
+		
 	}
-}
-//)();
+})();
 
 //code borrowed from collision-detect-test project
 //this seems to be extremely inefficient - n^3 checks. 
@@ -584,10 +611,7 @@ function init(){
 	//noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
-	
-	//var fromPolyModelFunctionFast = ;
-	var voxFunction = generateFromPolyModelFunctionFast();
-	
+	var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);	
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
@@ -836,10 +860,14 @@ function init(){
 		console.log(indexForGridPoint);
 		
 		function addVertData(ii,jj,kk){
-			vertices.push(ii/32, jj/32, kk/32);
-			normals.push(0,0,0);
+			ii-=0.5;	//???
+			jj-=0.5;
+			kk-=0.5;
+			
+			//vertices.push(ii/32, jj/32, kk/32);
+			//normals.push(0,0,0);
 				//^^ little faster for doing O(3) slow teapot thing
-/*
+
 			//smooth vertices (TODO make 2 vert buffers and UI to switch between) 
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
@@ -857,11 +885,11 @@ function init(){
 			//move by something like (discrepancy / totalGradent)*(gradientVector/totalGradient)
 			//to avoid /0 error add something to totalGradient
 		
-			var sharedPart = centralPoint / ( totalGradSq + 0.01);
-			
-			var newi = ii-sharedPart*gradX;
-			var newj = jj-sharedPart*gradY;
-			var newk = kk-sharedPart*gradZ;
+			var sharedPart = centralPoint / ( totalGradSq + 0.1);
+			var fudgeFactor = 0.75;
+			var newi = ii-sharedPart*gradX*fudgeFactor;
+			var newj = jj-sharedPart*gradY*fudgeFactor;
+			var newk = kk-sharedPart*gradZ*fudgeFactor;
 			
 			vertices.push(newi/32, newj/32, newk/32);
 
@@ -875,7 +903,7 @@ function init(){
 			
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
 			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
-			*/
+			
 			
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
