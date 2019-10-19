@@ -123,15 +123,15 @@ mvMatrix[12]=0;
 
 var playerMatrix = mat4.identity();
 
-mat4.rotateX(playerMatrix, -1.3);	//rads
-mat4.rotateZ(playerMatrix, 1);
+mat4.rotateX(playerMatrix, -0.5);	//rads
+//mat4.rotateZ(playerMatrix, 0.2);
 rotatePlayer([0,0,0]);	//hack to cause position update in matrix?
 
 
 
 //mat4.set(mvMatrix, playerMatrix);	//??
 
-var mainCamFov = 95;	//degrees.
+var mainCamFov = 85;	//degrees.
 
 var mouseInfo = {
 	x:0,
@@ -872,38 +872,32 @@ function init(){
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
 			var delta = 0.01;
+			var fudgeFactor = 0.5;	//less than 1 to avoid overshoot
+			var centralPoint,gradX,gradY,gradZ,totalGradSq,sharedPart;
 			
-			var centralPoint = voxFunction(ii,jj,kk);
-						
-			var gradX = (voxFunction(ii+delta,jj,kk)- centralPoint)/delta;
-			var gradY = (voxFunction(ii,jj+delta,kk)- centralPoint)/delta;
-			var gradZ = (voxFunction(ii,jj,kk+delta)- centralPoint)/delta;
+			for (var iter=0;iter<4;iter++){
+				centralPoint = voxFunction(ii,jj,kk);
+							
+				gradX = (voxFunction(ii+delta,jj,kk)- centralPoint)/delta;
+				gradY = (voxFunction(ii,jj+delta,kk)- centralPoint)/delta;
+				gradZ = (voxFunction(ii,jj,kk+delta)- centralPoint)/delta;
+				
+				totalGradSq = gradX*gradX + gradY*gradY + gradZ*gradZ;
+				
+				//have some sort of hill normal. should move downhill
+				//move by something like (discrepancy / totalGradent)*(gradientVector/totalGradient)
+				//to avoid /0 error add something to totalGradient
 			
-			var totalGradSq = gradX*gradX + gradY*gradY + gradZ*gradZ;
+				sharedPart = (centralPoint-0.5) / ( totalGradSq + 0.001);
+				ii = ii-sharedPart*gradX*fudgeFactor;
+				jj = jj-sharedPart*gradY*fudgeFactor;
+				kk = kk-sharedPart*gradZ*fudgeFactor;
+			}
 			
-			//have some sort of hill normal. should move downhill
-			//move by something like (discrepancy / totalGradent)*(gradientVector/totalGradient)
-			//to avoid /0 error add something to totalGradient
-		
-			var sharedPart = centralPoint / ( totalGradSq + 0.1);
-			var fudgeFactor = 0.75;
-			var newi = ii-sharedPart*gradX*fudgeFactor;
-			var newj = jj-sharedPart*gradY*fudgeFactor;
-			var newk = kk-sharedPart*gradZ*fudgeFactor;
-			
-			vertices.push(newi/32, newj/32, newk/32);
-
-			
-			//do another normal measurement at the displaced point
-			centralPoint = voxFunction(newi,newj,newk);
-			gradX = (voxFunction(newi+delta,newj,newk)- centralPoint)/delta;
-			gradY = (voxFunction(newi,newj+delta,newk)- centralPoint)/delta;
-			gradZ = (voxFunction(newi,newj,newk+delta)- centralPoint)/delta;
-			totalGradSq = gradX*gradX + gradY*gradY + gradZ*gradZ;
-			
+			vertices.push(ii/32, jj/32, kk/32);
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
 			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
-			
+			//normals.push(0,0,0); 
 			
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
