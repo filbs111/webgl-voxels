@@ -607,10 +607,12 @@ function init(){
 	//var voxFunction = landscapeFunction;
 	//var voxFunction = bigBallFunction;
 	//var voxFunction = bigCylinderFunction;
+	//var voxFunction = curveCornerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
-	var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
+	//var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
+	var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
@@ -648,6 +650,9 @@ function init(){
 		//return Math.max(iim*iim + jjm*jjm, kkm*kkm) - 1000;	//inverted
 		//return 950- Math.max(iim*iim + jjm*jjm, kkm*kkm);
 		return 950- Math.max( 0.55*(iim*iim + jjm*jjm + kkm*kkm), Math.max(iim*iim + jjm*jjm, kkm*kkm)); //bevel
+	}
+	function curveCornerFunction(ii,jj,kk){
+		return 10000-ii*jj*kk;
 	}
 	function landscapeFunction(ii,jj,kk){	
 		var iim,jjm,kkm;
