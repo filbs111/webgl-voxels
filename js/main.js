@@ -1176,6 +1176,8 @@ function itMechanicsAndDrawScene(){
 	requestAnimationFrame(itMechanicsAndDrawScene);
 	iterateMechanics();
 	drawScene();
+	
+	document.getElementById("debugtext").innerHTML = checkCollision(playerPosition);
 }
 
 function drawScene(drawTime){
@@ -1274,4 +1276,19 @@ function crossProductHomgenous(dir1, dir2){
 	output.z = dir1.x * dir2.y - dir1.y * dir2.x;
 	output.w = dir1.w * dir2.w;
 	return output;
+}
+
+function checkCollision(position){
+	//look up what grid square are in, return voxdata for that. (TODO use smoothed/polygon data)
+	//TODO check offset of 0.5 etc...
+	//TODO make position sensible! 
+	
+	var ii = Math.floor(-position[0]*32);
+	var jj = Math.floor(-position[1]*32);
+	var kk = Math.floor(-position[2]*32);
+	if (ii<0 || jj<0 || kk<0 || ii>63 || jj >63 || kk>63){
+		//return false;
+		return "OUTSIDE BOX. ii=" + ii + ", jj=" + jj + ", kk=" +kk;
+	}
+	return voxdata[ii][jj][kk];
 }
