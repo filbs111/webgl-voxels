@@ -84,6 +84,10 @@ function initBuffers(){
 			bufferObj.vertexNormalBuffer = gl.createBuffer();
 			bufferArrayData(bufferObj.vertexNormalBuffer, sourceData.normals, 3);
 		}
+		if (sourceData.colors){
+			bufferObj.vertexColorBuffer = gl.createBuffer();
+			bufferArrayData(bufferObj.vertexColorBuffer, sourceData.colors, 3);
+		}
 		
 		//triangles rather than strip, but no big deal- frag shader does most of the work!
 		bufferObj.vertexIndexBuffer = gl.createBuffer();
@@ -104,6 +108,11 @@ function initShaders(){
 					
 	shaderPrograms.withNormals = loadShader( "shader-withnormals-vs", "shader-color-fs",{
 					attributes:["aVertexPosition","aVertexNormal"],
+					uniforms:["uMVMatrix","uPMatrix"]
+					});
+	
+	shaderPrograms.withNormalsAndColor = loadShader( "shader-withnormals-andcolor-vs", "shader-color-fs",{
+					attributes:["aVertexPosition","aVertexNormal","aVertexColor"],
 					uniforms:["uMVMatrix","uPMatrix"]
 					});
 }
@@ -145,10 +154,10 @@ var mouseInfo = {
 voxdata = [];
 
 var guiParams={
-	box:false,
+	box:true,
 	stupid:false,
-	sparse:true,
-	sparseWithNormals:false,
+	sparse:false,
+	sparseWithNormals:true,	//TODO with/without color
 	constrainToBox:false
 };
 
@@ -622,7 +631,7 @@ function init(){
 	//noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
-	//var voxFunction = fromPolyModelFunctionFast;
+	var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);	
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
@@ -889,6 +898,7 @@ function init(){
 		var vertices = [];
 		var indices = [];
 		var normals = [];
+		var colors = [];
 		
 		//sparse version - no unused vertices.
 		var indexForGridPoint = [];
@@ -976,7 +986,16 @@ function init(){
 			
 			vertices.push(ii/32, jj/32, kk/32);
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
-			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ); 
+			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ);
+			
+			//colors.push(Math.random(),Math.random(),Math.random());
+			var colorScale = 6;	//scale of noise (smaller = finer)
+			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
+			var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
+			colors.push(grayColor * 0.5,
+						grayColor * 0.05,
+						grayColor * 0.01
+			);
 			//normals.push(0,0,0); 
 			
 		}
@@ -1046,6 +1065,7 @@ function init(){
 		return {
 			vertices:vertices,
 			normals:normals,
+			colors:colors,
 			indices:indices
 		};
 	})();
@@ -1063,8 +1083,8 @@ function init(){
 	//hack - draw with most complex shader prog. this binds buffers for all used attribute indices
 	//possibly, better to handle which are enabled when switching shader using enableVertexAttribArray / disableVertexAttribArray
 	//drawing with unneeded attribArrays bound still works
-	gl.useProgram(shaderPrograms.withNormals);
-	drawObjectFromBuffers(voxBuffers["sparseWithNormals"], shaderPrograms.withNormals);
+	gl.useProgram(shaderPrograms.withNormalsAndColor);
+	drawObjectFromBuffers(voxBuffers["sparseWithNormals"], shaderPrograms.withNormalsAndColor);
 	
 	gl.enable(gl.DEPTH_TEST);
 	
@@ -1085,6 +1105,10 @@ function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
 	if (bufferObj.vertexNormalBuffer && shaderProg.attributes.aVertexNormal){
 		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexNormalBuffer);
 		gl.vertexAttribPointer(shaderProg.attributes.aVertexNormal, bufferObj.vertexNormalBuffer.itemSize, gl.FLOAT, false, 0, 0);
+	}
+	if (bufferObj.vertexColorBuffer && shaderProg.attributes.aVertexColor){
+		gl.bindBuffer(gl.ARRAY_BUFFER, bufferObj.vertexColorBuffer);
+		gl.vertexAttribPointer(shaderProg.attributes.aVertexColor, bufferObj.vertexColorBuffer.itemSize, gl.FLOAT, false, 0, 0);
 	}
 	
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferObj.vertexIndexBuffer);
@@ -1211,7 +1235,8 @@ function drawScene(drawTime){
 	}
 	
 	if (guiParams.sparseWithNormals){
-		activeShaderProgram = shaderPrograms.withNormals;
+		//activeShaderProgram = shaderPrograms.withNormals;
+		activeShaderProgram = shaderPrograms.withNormalsAndColor;
 		gl.useProgram(activeShaderProgram);
 		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
 	}
