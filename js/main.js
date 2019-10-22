@@ -197,6 +197,7 @@ function loadBlenderExport(meshToLoad){
 
 
 // do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
+var startGenFuncTime = Date.now();
 var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	
 	var teapotColData={};	
@@ -232,25 +233,20 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 		for (var jj=0;jj<blocksize;jj++){
 			var stripdata = [];
 			slicedata.push(stripdata);
-		//	for (var kk=0;kk<blocksize;kk++){
-				//TODO generate strip data by single line collision
-				var collisionData = checkForCollisions([(ii-30)/31+0.0001,(jj-16)/31+0.0001,-1],[(ii-30)/31+0.0001,(jj-16)/31+0.0001,1]);	//+0.001 so misses edges (TODO handle edge case)
-					//TODO rotate teapot 45 deg to fit into box better
-				
-				collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
-				var zidx=0;
-				var nextCollision;
-				var fill=-1;
-				while (nextCollision = collisionData.pop()){
-					while (zidx<nextCollision.z){
-						stripdata[zidx++]=fill;
-					}
-					fill = nextCollision.fill;	//transition to filled ie face downward or unfilled ie face up
-				}
-				while (zidx<blocksize){
+			var collisionData = checkForCollisions([(ii-30)/31,(jj-16)/31,-1],[(ii-30)/31,(jj-16)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
+			collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
+			var zidx=0;
+			var nextCollision;
+			var fill=-1;
+			while (nextCollision = collisionData.pop()){
+				while (zidx<nextCollision.z){
 					stripdata[zidx++]=fill;
 				}
-		//	} 
+				fill = nextCollision.fill;	//transition to filled ie face downward or unfilled ie face up
+			}
+			while (zidx<blocksize){
+				stripdata[zidx++]=fill;
+			}
 		}
 	}
 	console.log("myVoxData:");
@@ -284,10 +280,18 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 				var crossProdZ = displacement[0]*edgevector[1] - displacement[1]*edgevector[0];
 				var dotProd = crossProdZ*rayVec[2];
 				
-				signsSum+=dotProd/Math.abs(dotProd);
-			}
-			if (Math.abs(signsSum)>2.5){	//should need 3, but unsure how numerical error works
+				//signsSum+=dotProd/Math.abs(dotProd);
 				
+				//use vertex order for handedness. might still have issues with ray through vertex.
+				//TODO make this more efficient (takes ~ 20% longer than simple signsum calculation without if.
+				if (thisTri[vv] > thisTri[nextv]){
+					signsSum+=dotProd>=0 ? 1 : -1;
+				}else{
+					signsSum+=dotProd>0 ? 1 : -1;
+				}
+			}
+			
+			if (Math.abs(signsSum)>2.5){	//should need 3, but unsure how numerical error works
 				//point on plane P
 				//plane normal N 
 				//looking for z for a line of fixed x,y
@@ -353,6 +357,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 		
 	}
 })();
+console.log("generated poly to vox func in " + (Date.now() - startGenFuncTime) + " ms.");
 
 //code borrowed from collision-detect-test project
 //this seems to be extremely inefficient - n^3 checks. 
