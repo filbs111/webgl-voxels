@@ -612,7 +612,9 @@ function init(){
 	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
-	var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
+	//var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
+	var voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
+	//var voxFunction = perlinPlanetFunction;
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
@@ -628,6 +630,17 @@ function init(){
 	function perlinfunction(ii,jj,kk){
 		//return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
 		return 10*noise.perlin3(ii/24,jj/12,kk/12) - 0.75*kk +20;	//landscape with 3d perlin surface
+	}
+	function perlinPlanetFunction(ii,jj,kk){
+		var iim,jjm,kkm;
+		iim = ii-blocksize/2;
+		jjm = jj-blocksize/2;
+		kkm = kk-blocksize/2;
+		//return (800+200*noise.perlin3(ii/12,jj/12,kk/12)) - (iim*iim + jjm*jjm + kkm*kkm);	//lumpy
+		//return (500+500*noise.perlin3(ii/6,jj/6,kk/6)) - (iim*iim + jjm*jjm + kkm*kkm);
+		//return (500+500*noise.perlin3(ii/12,jj/12,kk/12)) - (iim*iim + jjm*jjm + kkm*kkm);	//blobby
+		return Math.min(500, 500+1000*noise.perlin3(ii/6,jj/6,kk/6)) - (iim*iim + jjm*jjm + kkm*kkm);	//not good because discontinuities affect gradient
+		//return (500+500*noise.perlin3(ii/12,jj/12,kk/12)) - 0.001*Math.pow((iim*iim + jjm*jjm + kkm*kkm),2);	//not good because discontinuities affect gradient
 	}
 	
 	function sinesfunction(ii,jj,kk){
