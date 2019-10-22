@@ -200,12 +200,30 @@ function loadBlenderExport(meshToLoad){
 var startGenFuncTime = Date.now();
 var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	
+	var selectedData;
+	
+	/*
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
 	loadColData(teapotColData, teapotObject);
+	selectedData = teapotColData;
+	*/
 	
-	var faces = teapotColData.faces;
-	var verts = teapotColData.verts;
+	var sshipColData={};	
+	var sshipObject = loadBlenderExport(sshipData);	//isn't actually a blender export - just a obj json
+	//shrink vertices
+	var newVs = [];
+	var oldVs = sshipObject.vertices;
+	for (var vv in oldVs){
+		newVs.push(oldVs[vv]/2.1);
+	}
+	sshipObject.vertices = newVs;
+	loadColData(sshipColData, sshipObject);
+	selectedData = sshipColData;
+	
+	
+	var faces = selectedData.faces;
+	var verts = selectedData.verts;
 	
 	//precalculate face normal data
 	var facePlaneData=[];
@@ -233,7 +251,8 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 		for (var jj=0;jj<blocksize;jj++){
 			var stripdata = [];
 			slicedata.push(stripdata);
-			var collisionData = checkForCollisions([(ii-30)/31,(jj-16)/31,-1],[(ii-30)/31,(jj-16)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
+			//var collisionData = checkForCollisions([(ii-30)/31,(jj-16)/31,-1],[(ii-30)/31,(jj-16)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
+			var collisionData = checkForCollisions([(ii-30)/31,(jj-32)/31,-1],[(ii-30)/31,(jj-32)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
 			collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
 			var zidx=0;
 			var nextCollision;
