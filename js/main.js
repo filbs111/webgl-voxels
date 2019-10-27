@@ -638,7 +638,7 @@ function init(){
 	
 	//var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
-	//var voxFunction = bigBallFunction;
+	var voxFunction = bigBallFunction;
 	//var voxFunction = bigCylinderFunction;
 	//var voxFunction = curveCornerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
@@ -655,7 +655,7 @@ function init(){
 	//noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
-	var voxFunction = fromPolyModelFunctionFast;
+	//var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);	
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
@@ -1017,10 +1017,8 @@ function init(){
 			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
 			//var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
 			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale);
-			colors.push(grayColor * 0.5,
-						grayColor * 0.05,
-						grayColor * 0.01
-			);
+			grayColor*=0.5;
+			colors.push(grayColor, grayColor, grayColor);
 			//normals.push(0,0,0); 
 			
 		}
@@ -1100,7 +1098,7 @@ function init(){
 	
 	initGL();
 	
-	gl.clearColor.apply(gl,[1,1,0,1]);
+	gl.clearColor.apply(gl,[0.7,1,1,1]);
 	
 	initShaders();
 	initBuffers();
