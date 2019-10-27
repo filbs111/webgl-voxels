@@ -202,13 +202,13 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	
 	var selectedData;
 	
-	/*
+	
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
 	loadColData(teapotColData, teapotObject);
 	selectedData = teapotColData;
-	*/
 	
+	/*
 	var sshipColData={};	
 	var sshipObject = loadBlenderExport(sshipData);	//isn't actually a blender export - just a obj json
 	//shrink vertices
@@ -220,7 +220,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	sshipObject.vertices = newVs;
 	loadColData(sshipColData, sshipObject);
 	selectedData = sshipColData;
-	
+	*/
 	
 	var faces = selectedData.faces;
 	var verts = selectedData.verts;
@@ -253,7 +253,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 			slicedata.push(stripdata);
 			//var collisionData = checkForCollisions([(ii-30)/31,(jj-16)/31,-1],[(ii-30)/31,(jj-16)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
 			var collisionData = checkForCollisions([(ii-30)/31,(jj-32)/31,-1],[(ii-30)/31,(jj-32)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
-			collisionData.sort(function(a,b){return a.z<b.z;});	//sort collision data.
+			collisionData.sort(function(a,b){return b.z-a.z;});	//sort collision data.
 			var zidx=0;
 			var nextCollision;
 			var fill=-1;
@@ -646,7 +646,7 @@ function init(){
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
-	var voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
+	//var voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
 	//var voxFunction = perlinPlanetFunction;
 	
 	seedValue= Math.random();
