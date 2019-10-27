@@ -1015,7 +1015,8 @@ function init(){
 			//colors.push(Math.random(),Math.random(),Math.random());
 			var colorScale = 6;	//scale of noise (smaller = finer)
 			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
-			var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
+			//var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
+			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale);
 			colors.push(grayColor * 0.5,
 						grayColor * 0.05,
 						grayColor * 0.01
@@ -1340,4 +1341,17 @@ function checkCollision(position){
 		return "OUTSIDE BOX. ii=" + ii + ", jj=" + jj + ", kk=" +kk;
 	}
 	return voxdata[ii][jj][kk];
+}
+
+function sumPerlin(ii,jj,kk){
+	//seems perlin lib doesn't have many options. want something with discernable texture over more length scales.
+	var total=0;
+	var colorScale=6;
+	var amplitude=1.5;
+	for (var iter=0;iter<10;iter++){
+		colorScale/=2;
+		amplitude/=1.8;	//TODO sum series to normalise sum of amplitudes
+		total+=amplitude*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	//TODO consistent random offsets for levels (so doesn't spike at 0)
+	}
+	return total;
 }
