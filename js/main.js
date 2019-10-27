@@ -636,9 +636,9 @@ function init(){
 		}
 	}
 	
-	//var voxFunction = sinesfunction;
+	var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
-	var voxFunction = bigBallFunction;
+	//var voxFunction = bigBallFunction;
 	//var voxFunction = bigCylinderFunction;
 	//var voxFunction = curveCornerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
@@ -1167,28 +1167,25 @@ var iterateMechanics = (function generateIterateMechanics(){
 	var newTime = Date.now();
 	var camSpeed = [0,0,0];
 	
+	var wasdPressed=[false,false,false,false];
+	
+	window.addEventListener("keyup",function(e){
+		var keyCode=e.keyCode;
+		if (keyCode == 87){wasdPressed[0]=false;}
+		if (keyCode == 65){wasdPressed[1]=false;}
+		if (keyCode == 83){wasdPressed[2]=false;}
+		if (keyCode == 68){wasdPressed[3]=false;}
+	});
+	
 	window.addEventListener("keydown",function(e){
 		var keyCode=e.keyCode;
-		console.log(keyCode);
+		//console.log(keyCode);
 		//WASD = 87,65,83,68
-		var camStep = 0.001;
 		
-		var camMove = [0,0,0];
-		if (keyCode == 87){camMove[2]+=camStep;}
-		if (keyCode == 83){camMove[2]-=camStep;}
-		if (keyCode == 65){camMove[0]+=camStep;}
-		if (keyCode == 68){camMove[0]-=camStep;}
-		
-		//add to camSpeed instead
-		/*
-		camSpeed[0] += camMove[0]*mvMatrix[0] + camMove[1]*mvMatrix[4] + + camMove[2]*mvMatrix[8];
-		camSpeed[1] += camMove[0]*mvMatrix[1] + camMove[1]*mvMatrix[5] + + camMove[2]*mvMatrix[9];
-		camSpeed[2] += camMove[0]*mvMatrix[2] + camMove[1]*mvMatrix[6] + + camMove[2]*mvMatrix[10];
-		*/
-		//transposed vs code from rayMarcherTest
-		camSpeed[0] += camMove[0]*mvMatrix[0] + camMove[1]*mvMatrix[1] + + camMove[2]*mvMatrix[2];
-		camSpeed[1] += camMove[0]*mvMatrix[4] + camMove[1]*mvMatrix[5] + + camMove[2]*mvMatrix[6];
-		camSpeed[2] += camMove[0]*mvMatrix[8] + camMove[1]*mvMatrix[9] + + camMove[2]*mvMatrix[10];
+		if (keyCode == 87){wasdPressed[0]=true;}
+		if (keyCode == 65){wasdPressed[1]=true;}
+		if (keyCode == 83){wasdPressed[2]=true;}
+		if (keyCode == 68){wasdPressed[3]=true;}
 		
 		var rollSpd = 0.05;
 		var rollAmt = 0;
@@ -1197,17 +1194,46 @@ var iterateMechanics = (function generateIterateMechanics(){
 		rotatePlayer([0,0,-rollAmt]);	// - because suspect matrix inverted compared to rayMarcherTest...
 	});
 	
+	//todo set keypresses to false on lose focus (exit page)
+	
+	var timeRemainder = 0;
+	var camStep = 0.0005;
+	
 	return function(){
 		var oldTime = newTime;
 		newTime = Date.now();
 		var timeElapsed = Math.min(newTime - oldTime, 1000);	//1s max
-		//exponential decay of speed towards desired speed. TODO proper movement integration, but doesn't really matter
-		var decayFactor = Math.pow(0.995,timeElapsed);
 		
-		camSpeed = camSpeed.map(function(val,ii){return val*decayFactor;});	//TODO keystate = target value... + (1-decayFactor)*camMove[ii];});
-		//camSpeed = camSpeed.map(function(val,ii){return camMove[ii];});
-		playerPosition = playerPosition.map(function(val,ii){return val+timeElapsed*camSpeed[ii];});
-		//playerPosition = playerPosition.map(function(val,ii){return val;});
+		//cap time elapsed
+		timeElapsed = Math.min(timeElapsed,100);
+		timeRemainder +=timeElapsed;
+		
+		while (timeRemainder > 0){
+	
+			var camMove = [0,0,0];
+			if (wasdPressed[0]){camMove[2]+=camStep;}
+			if (wasdPressed[1]){camMove[0]+=camStep;}
+			if (wasdPressed[2]){camMove[2]-=camStep;}
+			if (wasdPressed[3]){camMove[0]-=camStep;}
+			
+			//add to camSpeed instead
+			/*
+			camSpeed[0] += camMove[0]*mvMatrix[0] + camMove[1]*mvMatrix[4] + + camMove[2]*mvMatrix[8];
+			camSpeed[1] += camMove[0]*mvMatrix[1] + camMove[1]*mvMatrix[5] + + camMove[2]*mvMatrix[9];
+			camSpeed[2] += camMove[0]*mvMatrix[2] + camMove[1]*mvMatrix[6] + + camMove[2]*mvMatrix[10];
+			*/
+			//transposed vs code from rayMarcherTest
+			camSpeed[0] += camMove[0]*mvMatrix[0] + camMove[1]*mvMatrix[1] + + camMove[2]*mvMatrix[2];
+			camSpeed[1] += camMove[0]*mvMatrix[4] + camMove[1]*mvMatrix[5] + + camMove[2]*mvMatrix[6];
+			camSpeed[2] += camMove[0]*mvMatrix[8] + camMove[1]*mvMatrix[9] + + camMove[2]*mvMatrix[10];
+			
+			camSpeed = camSpeed.map(function(component){return component*0.95;});	//linear drag
+			
+			playerPosition = playerPosition.map(function(val,ii){return val+camSpeed[ii];});
+			//playerPosition = playerPosition.map(function(val,ii){return val;});
+			
+			timeRemainder-=10;
+		}
 		
 		if (guiParams.constrainToBox){
 			for (var cc=0;cc<3;cc++){
