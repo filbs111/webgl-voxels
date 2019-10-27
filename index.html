@@ -25,7 +25,7 @@
 		vec4 transformedCoord = uMVMatrix * vec4(aVertexPosition,1.0);	//todo use 4x3 mat?
 		gl_Position = uPMatrix * transformedCoord;
 		
-		fog = -transformedCoord.z/(-transformedCoord.z+1.0);
+		fog = 1.0-pow(0.85,length(transformedCoord));
 		vPos=aVertexPosition;		
 	}
 </script>
@@ -67,7 +67,7 @@
 		
 		vColor = vec3(0.05,0.05,1.0)*lighting;	//light direction (simple directional light)
 		
-		fog = -transformedCoord.z/(-transformedCoord.z+1.0);
+		fog = 1.0-pow(0.85,length(transformedCoord));
 		vPos=aVertexPosition;		
 	}
 </script>
@@ -92,7 +92,7 @@
 		
 		vColor = aVertexColor*lighting;	//light direction (simple directional light)
 		
-		fog = -transformedCoord.z/(-transformedCoord.z+1.0);
+		fog = 1.0-pow(0.85,length(transformedCoord));
 		vPos=aVertexPosition;		
 	}
 </script>
