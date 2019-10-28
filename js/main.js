@@ -61,12 +61,15 @@ function initBuffers(){
 	
 	voxBuffers["stupid"]={};
 	voxBuffers["sparse"]={};
+	voxBuffers["sparseSmoothed"]={};
 	voxBuffers["sparseWithNormals"]={};
 	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
 		
 	loadBufferData(voxBuffers["sparse"], { vertices:voxData["sparse"].vertices, indices:voxData["sparse"].indices});	//copy all but normals!
-	loadBufferData(voxBuffers["sparseWithNormals"], voxData["sparse"]);
-
+	loadBufferData(voxBuffers["sparseSmoothed"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices});	//copy all but normals!
+	loadBufferData(voxBuffers["sparseWithNormals"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].normals, colors:voxData["sparse"].colors});
+	//note could share buffers for some of above - currently generate multiple buffers from the same data
+	
 	function bufferArrayData(buffer, arr, size){
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
 		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(arr), gl.STATIC_DRAW);
@@ -157,6 +160,7 @@ var guiParams={
 	box:true,
 	stupid:false,
 	sparse:false,
+	sparseSmoothed:false,
 	sparseWithNormals:true,	//TODO with/without color
 	constrainToBox:false
 };
@@ -552,6 +556,7 @@ function init(){
 	gui.add(guiParams, "box");
 	gui.add(guiParams, "stupid");
 	gui.add(guiParams, "sparse");
+	gui.add(guiParams, "sparseSmoothed");
 	gui.add(guiParams, "sparseWithNormals");
 	gui.add(guiParams, "constrainToBox");
 	
@@ -920,6 +925,7 @@ function init(){
 		//stupid implementation. a vertex for every grid point, regardless of whether occupied.
 		//can only do part of 64x64x64 this way
 		var vertices = [];
+		var smoothVertices = [];
 		var indices = [];
 		var normals = [];
 		var colors = [];
@@ -978,7 +984,7 @@ function init(){
 			jj-=0.5;
 			kk-=0.5;
 			
-			//vertices.push(ii/32, jj/32, kk/32);
+			vertices.push(ii/32, jj/32, kk/32);
 			//normals.push(0,0,0);
 				//^^ little faster for doing O(3) slow teapot thing
 
@@ -1008,7 +1014,7 @@ function init(){
 				kk = kk-sharedPart*gradZ*fudgeFactor;
 			}
 			
-			vertices.push(ii/32, jj/32, kk/32);
+			smoothVertices.push(ii/32, jj/32, kk/32);
 			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
 			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ);
 			
@@ -1087,6 +1093,7 @@ function init(){
 		
 		return {
 			vertices:vertices,
+			smoothVertices:smoothVertices,
 			normals:normals,
 			colors:colors,
 			indices:indices
@@ -1281,6 +1288,9 @@ function drawScene(drawTime){
 	}
 	if (guiParams.sparse){
 		drawObjectFromBuffers(voxBuffers["sparse"], activeShaderProgram);
+	}
+	if (guiParams.sparseSmoothed){
+		drawObjectFromBuffers(voxBuffers["sparseSmoothed"], activeShaderProgram);
 	}
 	
 	if (guiParams.sparseWithNormals){
