@@ -48,6 +48,18 @@
 	
 </script>
 
+<script id="shader-simple-color-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	uniform vec3 uColor;
+	varying vec3 vPos;
+	varying float fog;
+	
+	void main(void){
+		gl_FragColor=vec4( pow( pow(vec3(0.7,1.0,1.0),vec3(2.2))*fog+(1.0-fog)*uColor,vec3(0.455)) ,1.0);	//TODO precalc fog color ^ 2.2
+	}
+</script>
+
+
 <script id="shader-withnormals-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
 	attribute vec3 aVertexNormal;

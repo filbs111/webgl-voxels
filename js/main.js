@@ -65,7 +65,7 @@ function initBuffers(){
 	voxBuffers["sparseWithNormals"]={};
 	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
 		
-	loadBufferData(voxBuffers["sparse"], { vertices:voxData["sparse"].vertices, indices:voxData["sparse"].indices});	//copy all but normals!
+	loadBufferData(voxBuffers["sparse"], { vertices:voxData["sparse"].vertices, indices:voxData["sparse"].indices, directionalIndices:voxData["sparse"].directionalIndices});	//copy all but normals!
 	loadBufferData(voxBuffers["sparseSmoothed"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices});	//copy all but normals!
 	loadBufferData(voxBuffers["sparseWithNormals"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].normals, colors:voxData["sparse"].colors});
 	//note could share buffers for some of above - currently generate multiple buffers from the same data
@@ -98,6 +98,10 @@ function initBuffers(){
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(sourceData.indices), gl.STATIC_DRAW);
 		bufferObj.vertexIndexBuffer.itemSize = 3;
 		bufferObj.vertexIndexBuffer.numItems = sourceData.indices.length;
+		
+		if (sourceData.directionalIndices){
+			bufferObj.directionalIndices = sourceData.directionalIndices;
+		}
 	}
 }
 
@@ -107,6 +111,11 @@ function initShaders(){
 	shaderPrograms.simple = loadShader( "shader-simple-vs", "shader-simple-fs",{
 					attributes:["aVertexPosition"],
 					uniforms:["uMVMatrix","uPMatrix"]
+					});
+					
+	shaderPrograms.simpleColor = loadShader( "shader-simple-vs", "shader-simple-color-fs",{
+					attributes:["aVertexPosition"],
+					uniforms:["uMVMatrix","uPMatrix","uColor"]
 					});
 					
 	shaderPrograms.withNormals = loadShader( "shader-withnormals-vs", "shader-color-fs",{
@@ -160,6 +169,7 @@ var guiParams={
 	box:true,
 	stupid:false,
 	sparse:false,
+	sparseSeparateFaces:false,
 	sparseSmoothed:false,
 	sparseWithNormals:true,	//TODO with/without color
 	constrainToBox:false
@@ -556,6 +566,7 @@ function init(){
 	gui.add(guiParams, "box");
 	gui.add(guiParams, "stupid");
 	gui.add(guiParams, "sparse");
+	gui.add(guiParams, "sparseSeparateFaces");
 	gui.add(guiParams, "sparseSmoothed");
 	gui.add(guiParams, "sparseWithNormals");
 	gui.add(guiParams, "constrainToBox");
@@ -641,9 +652,9 @@ function init(){
 		}
 	}
 	
-	var voxFunction = sinesfunction;
+	//var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
-	//var voxFunction = bigBallFunction;
+	var voxFunction = bigBallFunction;
 	//var voxFunction = bigCylinderFunction;
 	//var voxFunction = curveCornerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
@@ -926,7 +937,6 @@ function init(){
 		//can only do part of 64x64x64 this way
 		var vertices = [];
 		var smoothVertices = [];
-		var indices = [];
 		var normals = [];
 		var colors = [];
 		
@@ -1031,11 +1041,12 @@ function init(){
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
 		}
-		function pushIndexForNumber(nii,njj,nkk){
-			indices.push(indexForGridPoint[nii],indexForGridPoint[njj],indexForGridPoint[nkk]);
+		function pushIndexForNumber(indexarr,nii,njj,nkk){
+			indexarr.push(indexForGridPoint[nii],indexForGridPoint[njj],indexForGridPoint[nkk]);
 		}
 		
 		var oneVertIdx;
+		var directionalIndices = [[],[],[],[],[],[]];
 		for (var ii=0;ii<64;ii++){
 			for (var jj=0;jj<64;jj++){
 				for (var kk=0;kk<63;kk++){
@@ -1043,11 +1054,11 @@ function init(){
 					if (difference!=0){
 						oneVertIdx = getNumberOfGridPoint(ii,jj,kk+1);
 						if ( difference>0 ){
-							pushIndexForNumber( oneVertIdx , oneVertIdx+65 , oneVertIdx+65+65*65 );	//bottom faces
-							pushIndexForNumber( oneVertIdx , oneVertIdx+65+65*65, oneVertIdx+65*65);
+							pushIndexForNumber(directionalIndices[0], oneVertIdx , oneVertIdx+65 , oneVertIdx+65+65*65 );	//bottom faces
+							pushIndexForNumber(directionalIndices[0],  oneVertIdx , oneVertIdx+65+65*65, oneVertIdx+65*65);
 						}else{
-							pushIndexForNumber( oneVertIdx, oneVertIdx+65+65*65, oneVertIdx+65 );		//top faces
-							pushIndexForNumber( oneVertIdx, oneVertIdx+65*65, oneVertIdx+65+65*65);
+							pushIndexForNumber(directionalIndices[1], oneVertIdx, oneVertIdx+65+65*65, oneVertIdx+65 );		//top faces
+							pushIndexForNumber(directionalIndices[1], oneVertIdx, oneVertIdx+65*65, oneVertIdx+65+65*65);
 							topFaceCount++;
 						}
 					}
@@ -1062,11 +1073,11 @@ function init(){
 					if (difference!=0){
 						oneVertIdx = getNumberOfGridPoint(ii,jj+1,kk);
 						if ( difference<0 ){
-							pushIndexForNumber( oneVertIdx, oneVertIdx+1, oneVertIdx+1+65*65 );
-							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65*65, oneVertIdx+65*65);
+							pushIndexForNumber(directionalIndices[2], oneVertIdx, oneVertIdx+1, oneVertIdx+1+65*65 );
+							pushIndexForNumber(directionalIndices[2], oneVertIdx, oneVertIdx+1+65*65, oneVertIdx+65*65);
 						}else{
-							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65*65, oneVertIdx+1 );
-							pushIndexForNumber( oneVertIdx, oneVertIdx+65*65, oneVertIdx+1+65*65);
+							pushIndexForNumber(directionalIndices[3], oneVertIdx, oneVertIdx+1+65*65, oneVertIdx+1 );
+							pushIndexForNumber(directionalIndices[3], oneVertIdx, oneVertIdx+65*65, oneVertIdx+1+65*65);
 						}
 					}
 				}
@@ -1080,23 +1091,32 @@ function init(){
 					if ( difference!=0 ){
 						oneVertIdx = getNumberOfGridPoint(ii+1,jj,kk);					
 						if ( difference>0 ){
-							pushIndexForNumber( oneVertIdx, oneVertIdx+1, oneVertIdx+1+65);
-							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65, oneVertIdx+65);
+							pushIndexForNumber(directionalIndices[4], oneVertIdx, oneVertIdx+1, oneVertIdx+1+65);
+							pushIndexForNumber(directionalIndices[4], oneVertIdx, oneVertIdx+1+65, oneVertIdx+65);
 						}else{
-							pushIndexForNumber( oneVertIdx, oneVertIdx+1+65, oneVertIdx+1);
-							pushIndexForNumber( oneVertIdx, oneVertIdx+65, oneVertIdx+1+65);
+							pushIndexForNumber(directionalIndices[5], oneVertIdx, oneVertIdx+1+65, oneVertIdx+1);
+							pushIndexForNumber(directionalIndices[5], oneVertIdx, oneVertIdx+65, oneVertIdx+1+65);
 						}
 					}
 				}
 			}
 		}
 		
+		console.log("indices info:");
+		console.log(directionalIndices[0].length);
+		console.log(directionalIndices[1].length);
+		console.log(directionalIndices[2].length);
+		console.log(directionalIndices[3].length);
+		console.log(directionalIndices[4].length);
+		console.log(directionalIndices[5].length);
+		
 		return {
 			vertices:vertices,
 			smoothVertices:smoothVertices,
 			normals:normals,
 			colors:colors,
-			indices:indices
+			directionalIndices:directionalIndices,
+			indices:Array.prototype.concat.apply([],directionalIndices)
 		};
 	})();
 	
@@ -1161,10 +1181,15 @@ function prepBuffersForDrawing(bufferObj, shaderProg, usesCubeMap){
 }
 
 
-function drawObjectFromPreppedBuffers(bufferObj, shaderProg){
+function drawObjectFromPreppedBuffers(bufferObj, shaderProg, startIdx, numIndices){
 	gl.uniformMatrix4fv(shaderProg.uniforms.uPMatrix, false, pMatrix);	//TODO not every frame.
 	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
-	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	
+	if (typeof startIdx == "undefined"){
+		gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	}else{
+		gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 2*startIdx);	//unsure where the 2 comes from!
+	}
 }
 
 var currentTime=0;
@@ -1260,6 +1285,16 @@ function itMechanicsAndDrawScene(){
 	document.getElementById("debugtext").innerHTML = checkCollision(playerPosition);
 }
 
+var cubeSideLighting=[
+	[1,0,0],
+	[0,1,0],
+	[0,0,1],
+	[0,1,1],
+	[1,0,1],
+	[1,1,0]
+];	//test colours. todo dot product face direction with light, make consistent with normals lighting
+	
+
 function drawScene(drawTime){
 	//requestAnimationFrame(drawScene);
 	
@@ -1291,6 +1326,19 @@ function drawScene(drawTime){
 	}
 	if (guiParams.sparseSmoothed){
 		drawObjectFromBuffers(voxBuffers["sparseSmoothed"], activeShaderProgram);
+	}
+	
+	if (guiParams.sparseSeparateFaces){
+		activeShaderProgram = shaderPrograms.simpleColor;
+		gl.useProgram(activeShaderProgram);
+		prepBuffersForDrawing(voxBuffers["sparse"], activeShaderProgram);
+		var runningIndex=0;
+		var sparseBuffers = voxBuffers["sparse"];
+		for (var dd=0;dd<6;dd++){
+			gl.uniform3fv(activeShaderProgram.uniforms.uColor, cubeSideLighting[dd]);
+			drawObjectFromPreppedBuffers(sparseBuffers, activeShaderProgram, runningIndex, sparseBuffers.directionalIndices[dd].length);	//TODO just store lengths
+			runningIndex+=sparseBuffers.directionalIndices[dd].length;
+		}
 	}
 	
 	if (guiParams.sparseWithNormals){
