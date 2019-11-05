@@ -654,16 +654,18 @@ function init(){
 	
 	//var voxFunction = sinesfunction;
 	//var voxFunction = landscapeFunction;
-	var voxFunction = bigBallFunction;
+	//var voxFunction = bigBallFunction;
 	//var voxFunction = bigCylinderFunction;
 	//var voxFunction = curveCornerFunction;
+	//var voxFunction = perlinPlanetFunction;
+	//var voxFunction = twistedTowerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
-	//var voxFunction = perlinPlanetFunction;
+	var voxFunction = bilinearFilterBinaryFunctionGen(twistedTowerFunction);
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
@@ -728,8 +730,17 @@ function init(){
 		
 		//return Math.min( eggboxPot - (kk/2 - 15) , ballPot/2);	//sharp field causes jagged edge when using standard "downhill" vertex adjustment (which assumes constant gradient)
 		
-		return ((eggboxPot - (kk/2 - 15))+3) * ((ballPot/2)+3) - 9;	//smoother field
-		
+		return ((eggboxPot - (kk/2 - 15))+3) * ((ballPot/2)+3) - 9;	//smoother field	
+	}
+	function twistedTowerFunction(ii,jj,kk){
+		var iim,jjm,kkm;
+		iim = ii-blocksize/2;
+		jjm = jj-blocksize/2;
+		//kkm = kk-blocksize/2;
+		var ang = kk*Math.PI/64;
+		var iir = iim*Math.cos(ang)-jjm*Math.sin(ang);
+		var jjr = iim*Math.sin(ang)+jjm*Math.cos(ang);
+		return 10 - Math.max(Math.abs(iir), Math.abs(jjr));
 	}
 	
 	function bilinearFilterBinaryFunctionGen(smoothFunction){	//generate a function that returns 1,-1 for occupied/unoccupied grid points, bilinear smoothed value between
