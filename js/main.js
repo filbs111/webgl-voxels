@@ -658,14 +658,14 @@ function init(){
 	//var voxFunction = bigCylinderFunction;
 	//var voxFunction = curveCornerFunction;
 	//var voxFunction = perlinPlanetFunction;
-	//var voxFunction = twistedTowerFunction;
+	var voxFunction = twistedTowerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
-	var voxFunction = bilinearFilterBinaryFunctionGen(twistedTowerFunction);
+	//var voxFunction = bilinearFilterBinaryFunctionGen(twistedTowerFunction);
 	
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
@@ -740,7 +740,9 @@ function init(){
 		var ang = kk*Math.PI/64;
 		var iir = iim*Math.cos(ang)-jjm*Math.sin(ang);
 		var jjr = iim*Math.sin(ang)+jjm*Math.cos(ang);
-		return 10 - Math.max(Math.abs(iir), Math.abs(jjr));
+		//return 10 - Math.max(Math.abs(iir), Math.abs(jjr));
+		var circleDist = Math.sqrt( Math.pow(Math.max(Math.abs(iir)-10 , 0),2) + Math.pow( Math.max(Math.abs(jjr)-10 , 0),2) );
+		return circleDist>0? -circleDist : 10 - Math.max(Math.abs(iir), Math.abs(jjr));
 	}
 	
 	function bilinearFilterBinaryFunctionGen(smoothFunction){	//generate a function that returns 1,-1 for occupied/unoccupied grid points, bilinear smoothed value between
@@ -1013,10 +1015,10 @@ function init(){
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
 			var delta = 0.01;
-			var fudgeFactor = 0.7;	//less than 1 to avoid overshoot
+			var fudgeFactor = 0.5;	//less than 1 to avoid overshoot
 			var centralPoint,gradX,gradY,gradZ,totalGradSq,sharedPart;
 			
-			for (var iter=0;iter<3;iter++){
+			for (var iter=0;iter<10;iter++){
 				centralPoint = voxFunction(ii,jj,kk);
 							
 				gradX = (voxFunction(ii+delta,jj,kk)- centralPoint)/delta;
