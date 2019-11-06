@@ -145,7 +145,7 @@
 		vColor = vec3(1.0)*lighting;	//light direction (simple directional light)
 		
 		fog = 1.0-pow(0.85,length(transformedCoord));
-		vPos=aVertexPosition;
+		vPos=aVertexPosition * vec3(2.0);	//shrink texture
 		
 		vTexAmounts = aVertexNormal*aVertexNormal;
 	}

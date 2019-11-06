@@ -699,7 +699,7 @@ function init(){
 	//var voxFunction = bigCylinderFunction;
 	//var voxFunction = curveCornerFunction;
 	//var voxFunction = perlinPlanetFunction;
-	var voxFunction = twistedTowerFunction;
+	//var voxFunction = twistedTowerFunction;
 	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
@@ -711,7 +711,7 @@ function init(){
 	seedValue= Math.random();
 	console.log("seed: " + seedValue);
 	var genStartTime = Date.now();
-	//noise.seed(seedValue);var voxFunction = perlinfunction;
+	noise.seed(seedValue);var voxFunction = perlinfunction;
 	
 	//var voxFunction = fromPolyModelFunction;
 	//var voxFunction = fromPolyModelFunctionFast;
@@ -1284,7 +1284,7 @@ var iterateMechanics = (function generateIterateMechanics(){
 	//todo set keypresses to false on lose focus (exit page)
 	
 	var timeRemainder = 0;
-	var camStep = 0.0005;
+	var camStep = 0.0002;
 	
 	return function(){
 		var oldTime = newTime;
@@ -1359,7 +1359,7 @@ function drawScene(drawTime){
 	resizecanvas(1);	//TODO should this really happen every frame? perf impact?
 	gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);	//TODO should this be every frame?
 
-	mat4.perspective(mainCamFov, gl.viewportWidth/gl.viewportHeight, 0.01,20.0,pMatrix);	//apparently 0.9.5, last param is matrix rather than 1st!! todo use newer???
+	mat4.perspective(mainCamFov, gl.viewportWidth/gl.viewportHeight, 0.001,20.0,pMatrix);	//apparently 0.9.5, last param is matrix rather than 1st!! todo use newer???
 																	//also old one uses degs!
 																	
 	mat4.set(playerMatrix, mvMatrix);																
