@@ -122,6 +122,52 @@
 </script>
 
 
+
+<script id="shader-texmap-vs" type="x-shader/x-vertex">
+	attribute vec3 aVertexPosition;
+	attribute vec3 aVertexNormal;
+	uniform mat4 uMVMatrix;
+	uniform mat4 uPMatrix;
+	varying vec3 vPos;
+	varying float fog;	//could combo with color
+	varying vec3 vColor;		//could calculate lighting/colour in fs
+	varying vec3 vTexAmounts;	//could pass through normals, normalise in fs, calculate amounts more precisely, but this should be more efficient
+
+	void main(void) {
+		vec4 transformedCoord = uMVMatrix * vec4(aVertexPosition,1.0);	//todo use 4x3 mat?
+		gl_Position = uPMatrix * transformedCoord;
+		
+		//vColor = vec3(1.0)*max(0.0,dot(aVertexNormal,vec3(0.2,0.1,-0.8)));	//light direction (simple directional light)
+		
+		float lighting  = 0.5+0.5*dot(aVertexNormal,vec3(0.2,0.1,-0.8));
+		
+		//vColor = vec3(0.05,0.05,1.0)*lighting;	//light direction (simple directional light)
+		vColor = vec3(1.0)*lighting;	//light direction (simple directional light)
+		
+		fog = 1.0-pow(0.85,length(transformedCoord));
+		vPos=aVertexPosition;
+		
+		vTexAmounts = aVertexNormal*aVertexNormal;
+	}
+</script>
+
+
+<script id="shader-texmap-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	uniform sampler2D uSampler;
+	varying vec3 vPos;
+	varying float fog;
+	varying vec3 vColor;
+	varying vec3 vTexAmounts;
+	
+	void main(void){
+		float texOffset = 0.5;	//half a grid square. todo check correct value.
+		vec4 texColor = vTexAmounts.x * texture2D(uSampler, vec2(vPos.y, vPos.z)) + vTexAmounts.y * texture2D(uSampler, vec2(vPos.x, vPos.z + texOffset )) + vTexAmounts.z * texture2D(uSampler, vec2(vPos.x + texOffset, vPos.y + texOffset ));	//TODO write in neat matrix form mat3(column0, column1, column2);
+		gl_FragColor=vec4( pow( pow(vec3(0.7,1.0,1.0),vec3(2.2))*fog+(1.0-fog)*vColor*texColor.xyz,vec3(0.455)) ,1.0);	//TODO precalc fog color ^ 2.2
+	}
+</script>
+
+
 <script type="text/javascript" src="js/main.js"></script>
 
 </head>

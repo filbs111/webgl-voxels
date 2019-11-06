@@ -127,7 +127,46 @@ function initShaders(){
 					attributes:["aVertexPosition","aVertexNormal","aVertexColor"],
 					uniforms:["uMVMatrix","uPMatrix"]
 					});
+					
+	shaderPrograms.texmap = loadShader( "shader-texmap-vs", "shader-texmap-fs",{
+					attributes:["aVertexPosition","aVertexNormal","aVertexColor"],
+					uniforms:["uMVMatrix","uPMatrix"]
+					});
 }
+
+var texture;
+function initTexture(){
+	texture = makeTexture("img/4483-v7.jpg");
+}
+function makeTexture(src) {	//to do OO
+	var texture = gl.createTexture();
+	texture.image = new Image();
+	texture.image.onload = function(){
+		bind2dTextureIfRequired(texture);
+		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		
+		gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);	//linear colorspace grad light texture (TODO handle other texture differently?)
+		
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, texture.image);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+		//gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.generateMipmap(gl.TEXTURE_2D);
+		bind2dTextureIfRequired(null);
+	};	
+	texture.image.src = src;
+	return texture;
+}
+var bind2dTextureIfRequired = (function createBind2dTextureIfRequiredFunction(){
+	var currentlyBoundTexture=null;
+	return function(texToBind){	//todo specify texture index. maybe combine with setting texture index so can automatically keep textures loaded
+								//curently just assuming using tex 0, already set as active texture (is set active texture a fast gl call?)
+		if (texToBind != currentlyBoundTexture){
+			gl.bindTexture(gl.TEXTURE_2D, texToBind);
+			currentlyBoundTexture = texToBind;
+		}
+	}
+})();
 
 var mvMatrix = mat4.create();
 //mat4.identity(mvMatrix);
@@ -171,7 +210,8 @@ var guiParams={
 	sparse:false,
 	sparseSeparateFaces:false,
 	sparseSmoothed:false,
-	sparseWithNormals:true,	//TODO with/without color
+	sparseWithNormals:false,	//TODO with/without color
+	textured:true,
 	constrainToBox:false
 };
 
@@ -569,6 +609,7 @@ function init(){
 	gui.add(guiParams, "sparseSeparateFaces");
 	gui.add(guiParams, "sparseSmoothed");
 	gui.add(guiParams, "sparseWithNormals");
+	gui.add(guiParams, "textured");
 	gui.add(guiParams, "constrainToBox");
 	
 	canvas=document.getElementById("glcanvas");
@@ -1141,6 +1182,7 @@ function init(){
 	gl.clearColor.apply(gl,[0.7,1,1,1]);
 	
 	initShaders();
+	initTexture();
 	initBuffers();
 	
 	//hack - draw with most complex shader prog. this binds buffers for all used attribute indices
@@ -1358,6 +1400,14 @@ function drawScene(drawTime){
 		//activeShaderProgram = shaderPrograms.withNormals;
 		activeShaderProgram = shaderPrograms.withNormalsAndColor;
 		gl.useProgram(activeShaderProgram);
+		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
+	}
+	
+	if (guiParams.textured){
+		activeShaderProgram = shaderPrograms.texmap;
+		gl.useProgram(activeShaderProgram);
+		bind2dTextureIfRequired(texture);
+		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
 		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
 	}
 	
