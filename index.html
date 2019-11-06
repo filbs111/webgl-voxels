@@ -161,9 +161,9 @@
 	varying vec3 vTexAmounts;
 	
 	void main(void){
-		float texOffset = 0.5;	//half a grid square. todo check correct value.
-		vec4 texColor = vTexAmounts.x * texture2D(uSampler, vec2(vPos.y, vPos.z)) + vTexAmounts.y * texture2D(uSampler, vec2(vPos.x, vPos.z + texOffset )) + vTexAmounts.z * texture2D(uSampler, vec2(vPos.x + texOffset, vPos.y + texOffset ));	//TODO write in neat matrix form mat3(column0, column1, column2);
-		gl_FragColor=vec4( pow( pow(vec3(0.7,1.0,1.0),vec3(2.2))*fog+(1.0-fog)*vColor*texColor.xyz,vec3(0.455)) ,1.0);	//TODO precalc fog color ^ 2.2
+		float texOffset = 0.5;
+		vec3 texColor = mat3(texture2D(uSampler, vec2(vPos.y, vPos.z)).xyz, texture2D(uSampler, vec2(vPos.x, vPos.z + texOffset )).xyz, texture2D(uSampler, vec2(vPos.x + texOffset, vPos.y + texOffset )).xyz) * vTexAmounts;
+		gl_FragColor=vec4( pow( pow(vec3(0.7,1.0,1.0),vec3(2.2))*fog+(1.0-fog)*vColor*texColor,vec3(0.455)) ,1.0);	//TODO precalc fog color ^ 2.2
 	}
 </script>
 
