@@ -136,7 +136,8 @@ function initShaders(){
 
 var texture;
 function initTexture(){
-	texture = makeTexture("img/4483-v7.jpg");
+	//texture = makeTexture("img/4483-v7.jpg");
+	texture = makeTexture("img/cretish0958.png");
 }
 function makeTexture(src) {	//to do OO
 	var texture = gl.createTexture();
@@ -595,6 +596,7 @@ var fromPolyModelFunction = (function generateFromPolyModelFunction(){
 
 
 var seedValue;
+var voxFunction;
 
 function init(){
 	
@@ -693,25 +695,29 @@ function init(){
 		}
 	}
 	
-	//var voxFunction = sinesfunction;
-	//var voxFunction = landscapeFunction;
-	//var voxFunction = bigBallFunction;
-	//var voxFunction = bigCylinderFunction;
-	//var voxFunction = curveCornerFunction;
-	//var voxFunction = perlinPlanetFunction;
-	//var voxFunction = twistedTowerFunction;
-	//var voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
-	//var voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
-	//var voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
-	//var voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
-	//var voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
-	//var voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
-	//var voxFunction = bilinearFilterBinaryFunctionGen(twistedTowerFunction);
+	//voxFunction = sinesfunction;
+	//voxFunction = landscapeFunction;
+	//voxFunction = bigBallFunction;
+	//voxFunction = bigCylinderFunction;
+	//voxFunction = curveCornerFunction;
+	//voxFunction = perlinPlanetFunction;
+	//voxFunction = twistedTowerFunction;
+	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
+	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
+	//voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
+	//voxFunction = bilinearFilterBinaryFunctionGen(bigCylinderFunction);
+	//voxFunction = bilinearFilterBinaryFunctionGen(curveCornerFunction);
+	//voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
+	//voxFunction = bilinearFilterBinaryFunctionGen(twistedTowerFunction);
 	
-	seedValue= Math.random();
+	//seedValue= Math.random();
+	seedValue= 0.06941288120167277;	//interesting landscape with tunnels
 	console.log("seed: " + seedValue);
 	var genStartTime = Date.now();
-	noise.seed(seedValue);var voxFunction = perlinfunction;
+	noise.seed(seedValue);
+	voxFunction = perlinfunction;
+	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
+	
 	
 	//var voxFunction = fromPolyModelFunction;
 	//var voxFunction = fromPolyModelFunctionFast;
@@ -1337,7 +1343,8 @@ function itMechanicsAndDrawScene(){
 	iterateMechanics();
 	drawScene();
 	
-	document.getElementById("debugtext").innerHTML = checkCollision(playerPosition);
+	//document.getElementById("debugtext").innerHTML = checkCollision(playerPosition);
+	document.getElementById("debugtext").innerHTML = checkCollisionForVoxFunction(playerPosition);
 }
 
 var cubeSideLighting=[
@@ -1486,6 +1493,10 @@ function checkCollision(position){
 		return "OUTSIDE BOX. ii=" + ii + ", jj=" + jj + ", kk=" +kk;
 	}
 	return voxdata[ii][jj][kk];
+}
+function checkCollisionForVoxFunction(position){
+	//return voxFunction(-position[0],-position[1],-position[2]) > 0;
+	return voxFunction(-32*position[0],-32*position[1],-32*position[2])>0;
 }
 
 function sumPerlin(ii,jj,kk){
