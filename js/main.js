@@ -211,8 +211,8 @@ var guiParams={
 	sparse:false,
 	sparseSeparateFaces:false,
 	sparseSmoothed:false,
-	sparseWithNormals:false,	//TODO with/without color
-	textured:true,
+	sparseWithNormals:true,	//TODO with/without color
+	textured:false,
 	constrainToBox:false
 };
 
@@ -696,7 +696,7 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	//voxFunction = landscapeFunction;
+	voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
@@ -715,7 +715,7 @@ function init(){
 	console.log("seed: " + seedValue);
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
-	voxFunction = perlinfunction;
+	//voxFunction = perlinfunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -1085,8 +1085,11 @@ function init(){
 			}
 			
 			smoothVertices.push(ii/32, jj/32, kk/32);
-			var invLength = Math.sqrt(1/( totalGradSq + 0.001));
-			normals.push(invLength*gradX, invLength*gradY, invLength*gradZ);
+			var invLengthSq = 1/( totalGradSq + 0.001)
+			var invLength = Math.sqrt(invLengthSq);
+			var normal = [invLength*gradX, invLength*gradY, invLength*gradZ];
+			var normalOverLength = [invLengthSq*gradX, invLengthSq*gradY, invLengthSq*gradZ];
+			normals.push(normal[0], normal[1], normal[2]);
 			
 			//colors.push(Math.random(),Math.random(),Math.random());
 			var colorScale = 6;	//scale of noise (smaller = finer)
@@ -1094,9 +1097,29 @@ function init(){
 			//var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
 			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale);
 			grayColor*=0.5;
-			colors.push(grayColor, grayColor, grayColor);
+			//colors.push(grayColor, grayColor, grayColor);
 			//normals.push(0,0,0); 
 			
+			//colour by local curvature. guess an equation for this.
+			//really a saddle should be more shady than a flat plane, and direction of lighting could be used, but simple version may provide ok effect 
+			var twiceCentralPoint = 2*voxFunction(ii,jj,kk);
+			var shiftX = voxFunction(ii+delta,jj,kk) + voxFunction(ii-delta,jj,kk) - twiceCentralPoint;
+			var shiftY = voxFunction(ii,jj+delta,kk) + voxFunction(ii,jj-delta,kk) - twiceCentralPoint;
+			var shiftZ = voxFunction(ii,jj,kk+delta) + voxFunction(ii,jj,kk-delta) - twiceCentralPoint;
+			
+			//try laplacian. suspect should use with second derivative in direction of normal
+			var curveColor = shiftX + shiftY + shiftZ;
+			var shiftGrad = voxFunction(ii+delta*normal[0],jj+delta*normal[1],kk+delta*normal[2]) + voxFunction(ii-delta*normal[0],jj-delta*normal[1],kk-delta*normal[2]) - twiceCentralPoint;	//TODO formulate this using the existing samples?
+			curveColor -= shiftGrad;
+			
+			//positive curvature doesn't increase lighting (unless saddle-like). TODO nonlinear shading(curve)
+			curveColor = Math.max(curveColor,0.0);
+			
+			//divide by steepness of scalar field func
+			curveColor*=invLength;
+			
+			grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
+			colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
