@@ -1279,9 +1279,9 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg, startIdx, numIndice
 var currentTime=0;
 
 //borrowed from rayMarcherTest
+var camSpeed = [0,0,0];	//TODO have collision test inside iterate mechanics
 var iterateMechanics = (function generateIterateMechanics(){
 	var newTime = Date.now();
-	var camSpeed = [0,0,0];
 	
 	var wasdPressed=[false,false,false,false];
 	
@@ -1367,7 +1367,7 @@ function itMechanicsAndDrawScene(){
 	drawScene();
 	
 	//document.getElementById("debugtext").innerHTML = checkCollision(playerPosition);
-	document.getElementById("debugtext").innerHTML = checkCollisionForVoxFunction(playerPosition);
+	document.getElementById("debugtext").innerHTML = checkCollisionForVoxFunction(playerPosition, 0.02);
 }
 
 var cubeSideLighting=[
@@ -1517,9 +1517,32 @@ function checkCollision(position){
 	}
 	return voxdata[ii][jj][kk];
 }
-function checkCollisionForVoxFunction(position){
-	//return voxFunction(-position[0],-position[1],-position[2]) > 0;
-	return voxFunction(-32*position[0],-32*position[1],-32*position[2])>0;
+function checkCollisionForVoxFunction(position, size){
+	//return voxFunction(-32*position[0],-32*position[1],-32*position[2])>0;
+	var xx = -32*position[0];
+	var yy = -32*position[1];
+	var zz = -32*position[2];
+	var delta = 0.01;
+	var centreVal = voxFunction(xx,yy,zz);
+	var gradX = voxFunction(xx+delta,yy,zz) - centreVal;
+	var gradY = voxFunction(xx,yy+delta,zz) - centreVal;
+	var gradZ = voxFunction(xx,yy,zz+delta) - centreVal;
+	
+	var gradLengthsq = gradX*gradX + gradY*gradY + gradZ*gradZ;
+	var collisionPenetration = size+centreVal*Math.sqrt(gradLengthsq);
+	if (collisionPenetration>0){
+		//reflect velocity. dot gradient with speed to check travelling towards surface.
+		var gradDotSpeed = camSpeed[0]*gradX + camSpeed[1]*gradY + camSpeed[2]*gradZ;
+		if ( gradDotSpeed<0){
+			//new vel = vel + 2* normal.vel * normal
+			var multiplier = 2*gradDotSpeed/gradLengthsq;
+			camSpeed[0]-= multiplier*gradX;
+			camSpeed[1]-= multiplier*gradY;
+			camSpeed[2]-= multiplier*gradZ;
+		}
+	}
+	
+	return collisionPenetration>0;
 }
 
 function sumPerlin(ii,jj,kk){
