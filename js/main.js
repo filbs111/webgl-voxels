@@ -176,7 +176,7 @@ mat4.identity(pMatrix);
 //mat4.translate(mvMatrix,vec3.fromArray([0,0,-10])); //glmatix expects own vector type
 
 
-var playerPosition = [0,-0.5,-3];	//should be contained within playerMatrix. TODO sort this (code here consistent with webglwideanglecamera project)
+var playerPosition = [-0.75,-0.5,-0.5];	//should be contained within playerMatrix. TODO sort this (code here consistent with webglwideanglecamera project)
 
 mvMatrix[14]=-3;	//move back to look at thing (is this camera or thing position?)
 mvMatrix[13]=-0.5;
@@ -1367,7 +1367,7 @@ function itMechanicsAndDrawScene(){
 	drawScene();
 	
 	//document.getElementById("debugtext").innerHTML = checkCollision(playerPosition);
-	document.getElementById("debugtext").innerHTML = checkCollisionForVoxFunction(playerPosition, 0.02);
+	document.getElementById("debugtext").innerHTML = checkCollisionForVoxFunction(playerPosition, 1);
 }
 
 var cubeSideLighting=[
@@ -1529,7 +1529,7 @@ function checkCollisionForVoxFunction(position, size){
 	var gradZ = voxFunction(xx,yy,zz+delta) - centreVal;
 	
 	var gradLengthsq = gradX*gradX + gradY*gradY + gradZ*gradZ;
-	var collisionPenetration = size+centreVal*Math.sqrt(gradLengthsq);
+	var collisionPenetration = size/delta+centreVal/Math.sqrt(gradLengthsq);
 	if (collisionPenetration>0){
 		//reflect velocity. dot gradient with speed to check travelling towards surface.
 		var gradDotSpeed = camSpeed[0]*gradX + camSpeed[1]*gradY + camSpeed[2]*gradZ;
