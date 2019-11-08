@@ -126,6 +126,7 @@
 <script id="shader-texmap-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
 	attribute vec3 aVertexNormal;
+	attribute vec3 aVertexColor;
 	uniform mat4 uMVMatrix;
 	uniform mat4 uPMatrix;
 	varying vec3 vPos;
@@ -142,7 +143,7 @@
 		float lighting  = 0.5+0.5*dot(aVertexNormal,vec3(0.2,0.1,-0.8));
 		
 		//vColor = vec3(0.05,0.05,1.0)*lighting;	//light direction (simple directional light)
-		vColor = vec3(1.0)*lighting;	//light direction (simple directional light)
+		vColor = aVertexColor*lighting;	//light direction (simple directional light)
 		
 		fog = 1.0-pow(0.85,length(transformedCoord));
 		vPos=aVertexPosition * vec3(2.0);	//shrink texture
