@@ -63,15 +63,17 @@ function initBuffers(){
 	voxBuffers["sparse"]={};
 	voxBuffers["sparseSmoothed"]={};
 	voxBuffers["sparseWithNormals"]={};
+	voxBuffers["sparseBasicAvgSmoothed"]={};
+	voxBuffers["sparseDCSmoothed"]={};
+	voxBuffers["sparseDCWithNormals"]={};
 	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
 		
 	loadBufferData(voxBuffers["sparse"], { vertices:voxData["sparse"].vertices, indices:voxData["sparse"].indices, directionalIndices:voxData["sparse"].directionalIndices});	//copy all but normals!
-	/*
 	loadBufferData(voxBuffers["sparseSmoothed"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices});	//copy all but normals!
 	loadBufferData(voxBuffers["sparseWithNormals"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].normals, colors:voxData["sparse"].colors});
-	*/
-	loadBufferData(voxBuffers["sparseSmoothed"], { vertices:voxData["sparse"].dcVertices, indices:voxData["sparse"].indices});	//copy all but normals!
-	loadBufferData(voxBuffers["sparseWithNormals"], { vertices:voxData["sparse"].dcVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].normals, colors:voxData["sparse"].colors});
+	loadBufferData(voxBuffers["sparseBasicAvgSmoothed"], { vertices:voxData["sparse"].basicAvgVertices, indices:voxData["sparse"].indices});	//copy all but normals!
+	loadBufferData(voxBuffers["sparseDCSmoothed"], { vertices:voxData["sparse"].dcVertices, indices:voxData["sparse"].indices});	//copy all but normals!
+	loadBufferData(voxBuffers["sparseDCWithNormals"], { vertices:voxData["sparse"].dcVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].dcNormals, colors:voxData["sparse"].dcColors});
 	
 	//note could share buffers for some of above - currently generate multiple buffers from the same data
 	
@@ -216,7 +218,10 @@ var guiParams={
 	sparse:false,
 	sparseSeparateFaces:false,
 	sparseSmoothed:false,
-	sparseWithNormals:true,	//TODO with/without color
+	sparseWithNormals:false,	//TODO with/without color
+	sparseBasicAvgSmoothed:false,
+	sparseDCSmoothed:false,
+	sparseDCWithNormals:true,	//TODO with/without color
 	textured:false,
 	constrainToBox:false
 };
@@ -615,7 +620,10 @@ function init(){
 	gui.add(guiParams, "sparse");
 	gui.add(guiParams, "sparseSeparateFaces");
 	gui.add(guiParams, "sparseSmoothed");
+	gui.add(guiParams, "sparseBasicAvgSmoothed");
 	gui.add(guiParams, "sparseWithNormals");
+	gui.add(guiParams, "sparseDCSmoothed");
+	gui.add(guiParams, "sparseDCWithNormals");
 	gui.add(guiParams, "textured");
 	gui.add(guiParams, "constrainToBox");
 	
@@ -701,12 +709,12 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	voxFunction = landscapeFunction;
+	//voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
-	//voxFunction = twistedTowerFunction;
+	voxFunction = twistedTowerFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
@@ -1005,9 +1013,13 @@ function init(){
 		//can only do part of 64x64x64 this way
 		var vertices = [];
 		var smoothVertices = [];
+		var basicAvgVertices = [];
 		var dcVertices = [];
 		var normals = [];
+		var dcNormals = [];
 		var colors = [];
+		var dcColors = [];
+		var delta = 0.01;
 		
 		//sparse version - no unused vertices.
 		var indexForGridPoint = [];
@@ -1057,7 +1069,7 @@ function init(){
 		}
 		console.log(currentPoint);
 		console.log(indexForGridPoint);
-		
+				
 		function addVertData(ii,jj,kk){
 			
 			//info for dual contouring. TODO more efficient to put this with vertex creation, ie looking up voxdata[ii][jj][kk] etc...
@@ -1083,7 +1095,7 @@ function init(){
 			//smooth vertices (TODO make 2 vert buffers and UI to switch between) 
 			//just look at gradient between surrounding points, move downhill. or take analytic gradient from something function used to generate vox data
 			//to make this work generally without needing to calculate analytic derivatives, just use numerical differences.
-			var delta = 0.01;
+			
 			var fudgeFactor = 0.5;	//less than 1 to avoid overshoot
 			var centralPoint,gradX,gradY,gradZ,totalGradSq,sharedPart;
 			
@@ -1115,37 +1127,8 @@ function init(){
 			var normalOverLength = [invLengthSq*gradX, invLengthSq*gradY, invLengthSq*gradZ];
 			normals.push(normal[0], normal[1], normal[2]);
 			
-			//colors.push(Math.random(),Math.random(),Math.random());
-			var colorScale = 6;	//scale of noise (smaller = finer)
-			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
-			//var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
-			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale);
-			grayColor*=0.5;
-			//colors.push(grayColor, grayColor, grayColor);
-			//normals.push(0,0,0); 
-			
-			//colour by local curvature. guess an equation for this.
-			//really a saddle should be more shady than a flat plane, and direction of lighting could be used, but simple version may provide ok effect 
-			var twiceCentralPoint = 2*voxFunction(ii,jj,kk);
-			var shiftX = voxFunction(ii+delta,jj,kk) + voxFunction(ii-delta,jj,kk) - twiceCentralPoint;
-			var shiftY = voxFunction(ii,jj+delta,kk) + voxFunction(ii,jj-delta,kk) - twiceCentralPoint;
-			var shiftZ = voxFunction(ii,jj,kk+delta) + voxFunction(ii,jj,kk-delta) - twiceCentralPoint;
-			
-			//try laplacian. suspect should use with second derivative in direction of normal
-			var curveColor = shiftX + shiftY + shiftZ;
-			var shiftGrad = voxFunction(ii+delta*normal[0],jj+delta*normal[1],kk+delta*normal[2]) + voxFunction(ii-delta*normal[0],jj-delta*normal[1],kk-delta*normal[2]) - twiceCentralPoint;	//TODO formulate this using the existing samples?
-			curveColor -= shiftGrad;
-			
-			//positive curvature doesn't increase lighting (unless saddle-like). TODO nonlinear shading(curve)
-			curveColor = Math.max(curveColor,0.0);
-			
-			//divide by steepness of scalar field func
-			curveColor*=invLength;
-			
-			grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
-			
-			//colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
-			
+			var grayColor = grayColorForPointAndNormal(ii,jj,kk,normal, invLength);	
+			colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
 			
 			
 			//"dual contouring" ? 
@@ -1167,6 +1150,10 @@ function init(){
 			var sumx=0;
 			var sumy=0;
 			var sumz=0;
+			
+			var sumnx=0;
+			var sumny=0;
+			var sumnz=0;
 			
 			var sumnxx=0;
 			var sumnxy=0;
@@ -1234,6 +1221,10 @@ function init(){
 				var totalgrad = Math.sqrt( totalGradSq + 0.000001);
 				
 				thisnorm = [ gradX/totalgrad , gradY/totalgrad , gradZ/totalgrad ];
+				
+				sumnx+=thisnorm[0];
+				sumny+=thisnorm[1];
+				sumnz+=thisnorm[2];
 				
 				sumnxx+=thisnorm[0]*thisnorm[0];
 				sumnyy+=thisnorm[1]*thisnorm[1];
@@ -1346,56 +1337,76 @@ function init(){
 			mattoinvert[0]=sumnxx;	mattoinvert[1]=sumnxy;	mattoinvert[2]=sumnxz;	//since matrix is symmetric, can inversion be done more efficiently?
 			mattoinvert[3]=sumnxy;	mattoinvert[4]=sumnyy;	mattoinvert[5]=sumnyz;
 			mattoinvert[6]=sumnxz;	mattoinvert[7]=sumnyz;	mattoinvert[8]=sumnzz;
-			//mattoinvert = mat3.inverse(mattoinvert);
-			var invertedMatrix = mat3.create();
-			invertedMatrix = mat3.inverse(mattoinvert);
 			
-			//check for failed matrix inversion?
-			if (invertedMatrix == null){
-				console.log("null inverse matrix!!");
-				//console.log(mattoinvert);	//seems that has loads of NaNs in the matrix to invert...
+			for (var cc=0;cc<9;cc++){
+				if (isNaN(mattoinvert[cc])){
+					console.log("NaN!!" + mattoinvert);
+				}
 			}
 			
-			//if (mattoinvert[0] == sumnxx){console.log("suspect inverse not working");}
-		//	myvec3[0] = sumnxxcx + sumnxycy + sumnyycy;
-		//	myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
-		//	myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz;
+			mattoinvert = mat3.inverse(mattoinvert);
 			
 			myvec3[0] = sumnxxcx + sumnxycy + sumnxzcz;
 			myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
 			myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz;
 			
-			if (invertedMatrix != null){	//unknown why does this. 
-			//if (false){	//so can just see which verts are bad by color 
-				//multiply vector by matrix. which function does this??
-				mat3.multiplyVec3(invertedMatrix, myvec3);
-				
-				dcVertices.push((ii_lo+myvec3[0])/32, (jj_lo+myvec3[1])/32, (kk_lo+myvec3[2])/32);
-			}else{
-				//fall back to old way.
-				
-				//sumx, y,z should be 1 less? 0.5??
-				if (sumnum>0){	//AFAIK this should not happen
-					ii_lo+=sumx/sumnum;
-					jj_lo+=sumy/sumnum;
-					kk_lo+=sumz/sumnum;
-					
-					//shift consistent with new method? (TODO check, but expect requirement of fallback is due to a bug)
-					//ii_lo-=0.5;
-					//jj_lo-=0.5;
-					//kk_lo-=0.5;
-				}
-				//dcVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
-				dcVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
-			}
+			if (mattoinvert==null){console.log("null matrix!!!!");}else{console.log("matrix is not null");}
+			mat3.multiplyVec3(mattoinvert, myvec3);
 			
-			if (invertedMatrix != null){	//unknown why does this. 
-				colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
-			}else{
-				colors.push(0, 1, 0);	//flag up bad points with a vertex colour.
-			}
+			var dcPos = [ii_lo+myvec3[0], jj_lo+myvec3[1], kk_lo+myvec3[2]];	
+			dcVertices.push(dcPos[0]/32, dcPos[1]/32, dcPos[2]/32);
 			
+			//normalise average normals
+			var sumNorm = Math.sqrt(sumnx*sumnx + sumny*sumny + sumnz*sumnz + 0.000001);
+			var dcNorm = [sumnx/sumNorm, sumny/sumNorm, sumnz/sumNorm];
+			dcNormals.push( dcNorm[0], dcNorm[1], dcNorm[2]);
+			
+			//basic average points method
+			if (sumnum>0){	//AFAIK this should not happen
+				ii_lo+=sumx/sumnum;
+				jj_lo+=sumy/sumnum;
+				kk_lo+=sumz/sumnum;
+			}
+			basicAvgVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
+			
+			//TODO specific dc colors *sampled from new vert positions
+			grayColor = grayColorForPointAndNormal(dcPos[0],dcPos[1],dcPos[2], dcNorm, 1/sumNorm);	//this has some wierdness. possibly because thinks some points are dark holes?
+																									//out by half error?
+			dcColors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
 		}
+
+		function grayColorForPointAndNormal(ii,jj,kk, normal, invLength){	//note can just calculate normal at point, but saves some calculation if already have it
+			//colors.push(Math.random(),Math.random(),Math.random());
+			var colorScale = 6;	//scale of noise (smaller = finer)
+			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
+			//var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
+			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale);
+			grayColor*=0.5;
+			//colors.push(grayColor, grayColor, grayColor);
+			//normals.push(0,0,0); 
+			
+			//colour by local curvature. guess an equation for this.
+			//really a saddle should be more shady than a flat plane, and direction of lighting could be used, but simple version may provide ok effect 
+			var twiceCentralPoint = 2*voxFunction(ii,jj,kk);
+			var shiftX = voxFunction(ii+delta,jj,kk) + voxFunction(ii-delta,jj,kk) - twiceCentralPoint;
+			var shiftY = voxFunction(ii,jj+delta,kk) + voxFunction(ii,jj-delta,kk) - twiceCentralPoint;
+			var shiftZ = voxFunction(ii,jj,kk+delta) + voxFunction(ii,jj,kk-delta) - twiceCentralPoint;
+			
+			//try laplacian. suspect should use with second derivative in direction of normal
+			var curveColor = shiftX + shiftY + shiftZ;
+			var shiftGrad = voxFunction(ii+delta*normal[0],jj+delta*normal[1],kk+delta*normal[2]) + voxFunction(ii-delta*normal[0],jj-delta*normal[1],kk-delta*normal[2]) - twiceCentralPoint;	//TODO formulate this using the existing samples?
+			curveColor -= shiftGrad;
+			
+			//positive curvature doesn't increase lighting (unless saddle-like). TODO nonlinear shading(curve)
+			curveColor = Math.max(curveColor,0.0);
+			
+			//divide by steepness of scalar field func
+			curveColor*=invLength;
+			
+			grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
+			return grayColor;
+		}
+
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
 		}
@@ -1471,9 +1482,12 @@ function init(){
 		return {
 			vertices:vertices,
 			smoothVertices:smoothVertices,
+			basicAvgVertices:basicAvgVertices,
 			dcVertices:dcVertices,
 			normals:normals,
+			dcNormals:dcNormals,
 			colors:colors,
+			dcColors:dcColors,
 			directionalIndices:directionalIndices,
 			indices:Array.prototype.concat.apply([],directionalIndices)
 		};
@@ -1691,6 +1705,12 @@ function drawScene(drawTime){
 	if (guiParams.sparseSmoothed){
 		drawObjectFromBuffers(voxBuffers["sparseSmoothed"], activeShaderProgram);
 	}
+	if (guiParams.sparseBasicAvgSmoothed){
+		drawObjectFromBuffers(voxBuffers["sparseBasicAvgSmoothed"], activeShaderProgram);
+	}
+	if (guiParams.sparseDCSmoothed){
+		drawObjectFromBuffers(voxBuffers["sparseDCSmoothed"], activeShaderProgram);
+	}
 	
 	if (guiParams.sparseSeparateFaces){
 		activeShaderProgram = shaderPrograms.simpleColor;
@@ -1711,13 +1731,19 @@ function drawScene(drawTime){
 		gl.useProgram(activeShaderProgram);
 		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
 	}
+	if (guiParams.sparseDCWithNormals){
+		//activeShaderProgram = shaderPrograms.withNormals;
+		activeShaderProgram = shaderPrograms.withNormalsAndColor;
+		gl.useProgram(activeShaderProgram);
+		drawObjectFromBuffers(voxBuffers["sparseDCWithNormals"], activeShaderProgram);
+	}
 	
 	if (guiParams.textured){
 		activeShaderProgram = shaderPrograms.texmap;
 		gl.useProgram(activeShaderProgram);
 		bind2dTextureIfRequired(texture);
 		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
-		drawObjectFromBuffers(voxBuffers["sparseWithNormals"], activeShaderProgram);
+		drawObjectFromBuffers(voxBuffers["sparseDCWithNormals"], activeShaderProgram);
 	}
 	
 	//mat4.rotateZ(mvMatrix,0.0003*(drawTime-currentTime)); 
