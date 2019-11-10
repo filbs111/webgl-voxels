@@ -701,8 +701,8 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	voxFunction = landscapeFunction;
-	//voxFunction = bigBallFunction;
+	//voxFunction = landscapeFunction;
+	voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
@@ -1171,63 +1171,63 @@ function init(){
 			//todo iterative root funding
 			//to calc normals (initially just check position finding
 			//switch along z
-			if (vdata[0]*vdata[1]<0){	//sign switch from lo,lo,lo to lo,lo,hi
+			if ( (vdata[0]-vdata[1]) && vdata[0]*vdata[1]<=0){	//sign switch from lo,lo,lo to lo,lo,hi
 				sumnum++;
 				sumz+= vdata[0]/(vdata[0]-vdata[1]);
 			}
-			if (vdata[2]*vdata[3]<0){	//sign switch from lo,hi,lo to lo,hi,hi
+			if ( (vdata[2]-vdata[3]) && vdata[2]*vdata[3]<=0){	//sign switch from lo,hi,lo to lo,hi,hi
 				sumnum++;
 				sumy++;
 				sumz+= vdata[2]/(vdata[2]-vdata[3]);
 			}
-			if (vdata[4]*vdata[5]<0){	//sign switch from hi,lo,lo to hi,lo,hi
+			if ( (vdata[4]-vdata[5]) && vdata[4]*vdata[5]<=0){	//sign switch from hi,lo,lo to hi,lo,hi
 				sumnum++;
 				sumx++;
 				sumz+= vdata[4]/(vdata[4]-vdata[5]);
 			}
-			if (vdata[6]*vdata[7]<0){	//sign switch from hi,hi,lo to hi,hi,hi
+			if ( (vdata[6]-vdata[7]) && vdata[6]*vdata[7]<=0){	//sign switch from hi,hi,lo to hi,hi,hi
 				sumnum++;
 				sumx++;
 				sumy++;
 				sumz+= vdata[6]/(vdata[6]-vdata[7]);
 			}
 			//switch along y
-			if (vdata[0]*vdata[2]<0){	//sign switch from lo,lo,lo to lo,hi,lo
+			if ( (vdata[0]-vdata[2]) && vdata[0]*vdata[2]<=0){	//sign switch from lo,lo,lo to lo,hi,lo
 				sumnum++;
 				sumy+= vdata[0]/(vdata[0]-vdata[2]);
 			}
-			if (vdata[1]*vdata[3]<0){	//sign switch from lo,lo,hi to lo,hi,hi
+			if ( (vdata[1]-vdata[3]) && vdata[1]*vdata[3]<=0){	//sign switch from lo,lo,hi to lo,hi,hi
 				sumnum++;
 				sumz++;
 				sumy+= vdata[1]/(vdata[1]-vdata[3]);
 			}
-			if (vdata[4]*vdata[6]<0){	//sign switch from hi,lo,lo to hi,hi,lo
+			if ( (vdata[4]-vdata[6]) && vdata[4]*vdata[6]<=0){	//sign switch from hi,lo,lo to hi,hi,lo
 				sumnum++;
 				sumx++;
 				sumy+= vdata[4]/(vdata[4]-vdata[6]);
 			}
-			if (vdata[5]*vdata[7]<0){	//sign switch from hi,lo,hi to hi,hi,hi
+			if ( (vdata[5]-vdata[7]) && vdata[5]*vdata[7]<=0){	//sign switch from hi,lo,hi to hi,hi,hi
 				sumnum++;
 				sumx++;
 				sumz++;
 				sumy+= vdata[5]/(vdata[5]-vdata[7]);
 			}
 			//switch along x
-			if (vdata[0]*vdata[4]<0){	//sign switch from lo,lo,lo to hi,lo,lo
+			if ( (vdata[0]-vdata[4]) && vdata[0]*vdata[4]<0){	//sign switch from lo,lo,lo to hi,lo,lo
 				sumnum++;
 				sumx+= vdata[0]/(vdata[0]-vdata[4]);
 			}
-			if (vdata[1]*vdata[5]<0){	//sign switch from lo,lo,hi to hi,lo,hi
+			if ( (vdata[1]-vdata[5]) && vdata[1]*vdata[5]<0){	//sign switch from lo,lo,hi to hi,lo,hi
 				sumnum++;
 				sumz++;
 				sumx+= vdata[1]/(vdata[1]-vdata[5]);
 			}
-			if (vdata[2]*vdata[6]<0){	//sign switch from lo,hi,lo to hi,hi,lo
+			if ( (vdata[2]-vdata[6]) && vdata[2]*vdata[6]<0){	//sign switch from lo,hi,lo to hi,hi,lo
 				sumnum++;
 				sumy++;
 				sumx+= vdata[2]/(vdata[2]-vdata[6]);
 			}
-			if (vdata[3]*vdata[7]<0){	//sign switch from lo,lo,hi to hi,lo,hi
+			if ( (vdata[3]-vdata[7]) && vdata[3]*vdata[7]<0){	//sign switch from lo,lo,hi to hi,lo,hi
 				sumnum++;
 				sumy++;
 				sumz++;
