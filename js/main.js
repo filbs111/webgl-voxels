@@ -709,12 +709,12 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	//voxFunction = landscapeFunction;
+	voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
-	voxFunction = twistedTowerFunction;
+	//voxFunction = twistedTowerFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
@@ -1350,14 +1350,14 @@ function init(){
 			myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
 			myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz;
 			
-			if (mattoinvert==null){console.log("null matrix!!!!");}else{console.log("matrix is not null");}
+			if (mattoinvert==null){console.log("null matrix!!!!");};	//else{console.log("matrix is not null");}
 			mat3.multiplyVec3(mattoinvert, myvec3);
 			
 			var dcPos = [ii_lo+myvec3[0], jj_lo+myvec3[1], kk_lo+myvec3[2]];	
 			dcVertices.push(dcPos[0]/32, dcPos[1]/32, dcPos[2]/32);
 			
 			//normalise average normals
-			var sumNorm = Math.sqrt(sumnx*sumnx + sumny*sumny + sumnz*sumnz + 0.000001);
+			var sumNorm = Math.sqrt(sumnx*sumnx + sumny*sumny + sumnz*sumnz + 0.1);
 			var dcNorm = [sumnx/sumNorm, sumny/sumNorm, sumnz/sumNorm];
 			dcNormals.push( dcNorm[0], dcNorm[1], dcNorm[2]);
 			
@@ -1369,13 +1369,19 @@ function init(){
 			}
 			basicAvgVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
 			
-			//TODO specific dc colors *sampled from new vert positions
-			grayColor = grayColorForPointAndNormal(dcPos[0],dcPos[1],dcPos[2], dcNorm, 1/sumNorm);	//this has some wierdness. possibly because thinks some points are dark holes?
-																									//out by half error?
+			//grayColor = grayColorForPointAndNormal(dcPos[0],dcPos[1],dcPos[2],dcNorm,1/sumNorm);	//wierd result since average normal is not the normal at this point! 
+			grayColor = grayColorForPointAndNormal(dcPos[0],dcPos[1],dcPos[2]);	//don't pass in normal info, calc inside function
+			
 			dcColors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
 		}
 
 		function grayColorForPointAndNormal(ii,jj,kk, normal, invLength){	//note can just calculate normal at point, but saves some calculation if already have it
+		
+			//guess
+			ii-=0.5;
+			jj-=0.5;
+			kk-=0.5;
+		
 			//colors.push(Math.random(),Math.random(),Math.random());
 			var colorScale = 6;	//scale of noise (smaller = finer)
 			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
@@ -1388,9 +1394,22 @@ function init(){
 			//colour by local curvature. guess an equation for this.
 			//really a saddle should be more shady than a flat plane, and direction of lighting could be used, but simple version may provide ok effect 
 			var twiceCentralPoint = 2*voxFunction(ii,jj,kk);
-			var shiftX = voxFunction(ii+delta,jj,kk) + voxFunction(ii-delta,jj,kk) - twiceCentralPoint;
-			var shiftY = voxFunction(ii,jj+delta,kk) + voxFunction(ii,jj-delta,kk) - twiceCentralPoint;
-			var shiftZ = voxFunction(ii,jj,kk+delta) + voxFunction(ii,jj,kk-delta) - twiceCentralPoint;
+			var fwdX = voxFunction(ii+delta,jj,kk);
+			var bwdX = voxFunction(ii-delta,jj,kk);
+			var fwdY = voxFunction(ii,jj+delta,kk);
+			var bwdY = voxFunction(ii,jj-delta,kk);
+			var fwdZ = voxFunction(ii,jj,kk+delta);
+			var bwdZ = voxFunction(ii,jj,kk-delta);
+			
+			var shiftX = fwdX + bwdX - twiceCentralPoint;
+			var shiftY = fwdY + bwdY - twiceCentralPoint;
+			var shiftZ = fwdZ + bwdZ - twiceCentralPoint;
+			
+			if (!normal){	//override input normal/invLength (if works, remove inputs)
+				normal = [(fwdX-bwdX)/delta, (fwdY-bwdY)/delta, (fwdZ-bwdZ)/delta];	//over delta avoids numerical error afaik
+				invLength = 1/Math.sqrt(normal[0]*normal[0] + normal[1]*normal[1] + normal[2]*normal[2] + 0.00001);
+				normal = normal.map(function(elem){return elem*invLength;});	
+			}
 			
 			//try laplacian. suspect should use with second derivative in direction of normal
 			var curveColor = shiftX + shiftY + shiftZ;
