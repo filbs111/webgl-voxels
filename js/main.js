@@ -709,12 +709,13 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	voxFunction = landscapeFunction;
+	//voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
 	//voxFunction = twistedTowerFunction;
+	voxFunction = donutFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
@@ -803,6 +804,15 @@ function init(){
 		//return 10 - Math.max(Math.abs(iir), Math.abs(jjr));
 		var circleDist = Math.sqrt( Math.pow(Math.max(Math.abs(iir)-10 , 0),2) + Math.pow( Math.max(Math.abs(jjr)-10 , 0),2) );
 		return circleDist>0? -circleDist : 10 - Math.max(Math.abs(iir), Math.abs(jjr));
+	}
+	function donutFunction(ii,jj,kk){
+		var iim,jjm,kkm;
+		iim = ii-blocksize/2;
+		jjm = jj-blocksize/2;
+		kkm = kk-blocksize/2;
+		var rad = Math.sqrt(iim*iim + jjm*jjm+0.001);
+		var donutsradsq = (rad-21)*(rad-21) + kkm*kkm;
+		return 100-donutsradsq;
 	}
 	
 	function bilinearFilterBinaryFunctionGen(smoothFunction){	//generate a function that returns 1,-1 for occupied/unoccupied grid points, bilinear smoothed value between
