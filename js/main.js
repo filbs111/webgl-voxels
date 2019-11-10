@@ -701,8 +701,8 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	//voxFunction = landscapeFunction;
-	voxFunction = bigBallFunction;
+	voxFunction = landscapeFunction;
+	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
@@ -920,6 +920,9 @@ function init(){
 	//todo count unique vertices (in all 6 directions)
 	
 	//todo not indexed version (easier, no problem with 65536 index limit)
+	
+	var mattoinvert = mat3.create();
+	var myvec3 = vec3.create();
 	
 	voxData["stupid"] = (function(){
 		//stupid implementation. a vertex for every grid point, regardless of whether occupied.
@@ -1140,7 +1143,8 @@ function init(){
 			curveColor*=invLength;
 			
 			grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
-			colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
+			
+			//colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
 			
 			
 			
@@ -1163,85 +1167,234 @@ function init(){
 			var sumx=0;
 			var sumy=0;
 			var sumz=0;
-			//var sumnx=0;
-			//var sumny=0;
-			//var sumnz=0;
+			
+			var sumnxx=0;
+			var sumnxy=0;
+			var sumnxz=0;
+			var sumnyy=0;
+			var sumnyz=0;
+			var sumnzz=0;
+			
+			var centrebias = 0.1;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
+			var sumnxx=centrebias;
+			var sumnyy=centrebias;
+			var sumnzz=centrebias;
+			var sumnxy=0;
+			var sumnxz=0;
+			var sumnyz=0;
+			
+			var sumnxxcx=0;
+			var sumnxycy=0;
+			var sumnxzcz=0;
+			var sumnyycy=0;
+			var sumnxycx=0;
+			var sumnyzcz=0;
+			var sumnzzcz=0;
+			var sumnxzcx=0;
+			var sumnyzcy=0;
+			
 			var sumnum=0;
 			//do sumx from lo,lo,lo point
 			//todo iterative root funding
 			//to calc normals (initially just check position finding
 			//switch along z
+			var intersect;
+			var thisnorm;
+			
+			function addToSums(ii_rel,jj_rel,kk_rel){	//inputs are relative to lo corner
+				if (isNaN(ii_rel) || isNaN(jj_rel) || isNaN(kk_rel)){
+					console.log("nan input to addToSums!" + ii_rel + "," + jj_rel + "," + kk_rel);
+				}
+			
+				var ii_fromcentre = ii_rel-0.5;
+				var jj_fromcentre = jj_rel-0.5;
+				var kk_fromcentre = kk_rel-0.5;
+				var ii_world = ii_lo + ii_rel;
+				var jj_world = jj_lo + jj_rel;
+				var kk_world = kk_lo + kk_rel;
+				
+				//bodge?
+				//ii_world+=0.5;
+				//jj_world+=0.5;
+				//kk_world+=0.5;
+				
+				//calculate normal for this position
+				centralPoint = voxFunction(ii_world,jj_world,kk_world);
+							
+				gradX = (voxFunction(ii_world+delta,jj_world,kk_world)- centralPoint)/delta;
+				gradY = (voxFunction(ii_world,jj_world+delta,kk_world)- centralPoint)/delta;
+				gradZ = (voxFunction(ii_world,jj_world,kk_world+delta)- centralPoint)/delta;
+				
+				totalGradSq = gradX*gradX + gradY*gradY + gradZ*gradZ;
+				
+				//have some sort of hill normal. should move downhill
+				//move by something like (discrepancy / totalGradent)*(gradientVector/totalGradient)
+				//to avoid /0 error add something to totalGradient
+			
+				var totalgrad = Math.sqrt( totalGradSq + 0.000001);
+				
+				thisnorm = [ gradX/totalgrad , gradY/totalgrad , gradZ/totalgrad ];
+				
+				sumnxx+=thisnorm[0]*thisnorm[0];
+				sumnyy+=thisnorm[1]*thisnorm[1];
+				sumnzz+=thisnorm[2]*thisnorm[2];
+				sumnxy+=thisnorm[0]*thisnorm[1];
+				sumnxz+=thisnorm[0]*thisnorm[2];
+				sumnyz+=thisnorm[1]*thisnorm[2];
+				
+				sumnxxcx+=thisnorm[0]*thisnorm[0]*ii_fromcentre;	//TODO formulate using loop/matrix etc
+				sumnxycy+=thisnorm[0]*thisnorm[1]*jj_fromcentre;
+				sumnxzcz+=thisnorm[0]*thisnorm[2]*kk_fromcentre;
+				sumnxycx+=thisnorm[0]*thisnorm[1]*ii_fromcentre;
+				sumnyycy+=thisnorm[1]*thisnorm[1]*jj_fromcentre;
+				sumnyzcz+=thisnorm[1]*thisnorm[2]*kk_fromcentre;
+				sumnxzcx+=thisnorm[0]*thisnorm[2]*ii_fromcentre;
+				sumnyzcy+=thisnorm[1]*thisnorm[2]*jj_fromcentre;
+				sumnzzcz+=thisnorm[2]*thisnorm[2]*kk_fromcentre;
+			}
+			
 			if ( (vdata[0]-vdata[1]) && vdata[0]*vdata[1]<=0){	//sign switch from lo,lo,lo to lo,lo,hi
 				sumnum++;
-				sumz+= vdata[0]/(vdata[0]-vdata[1]);
+				intersect = vdata[0]/(vdata[0]-vdata[1]);
+				sumz+= intersect;
+				addToSums(0,0,intersect);
 			}
 			if ( (vdata[2]-vdata[3]) && vdata[2]*vdata[3]<=0){	//sign switch from lo,hi,lo to lo,hi,hi
 				sumnum++;
 				sumy++;
-				sumz+= vdata[2]/(vdata[2]-vdata[3]);
+				intersect = vdata[2]/(vdata[2]-vdata[3]);
+				sumz+= intersect;
+				addToSums(0,1,intersect);
 			}
 			if ( (vdata[4]-vdata[5]) && vdata[4]*vdata[5]<=0){	//sign switch from hi,lo,lo to hi,lo,hi
 				sumnum++;
 				sumx++;
-				sumz+= vdata[4]/(vdata[4]-vdata[5]);
+				intersect = vdata[4]/(vdata[4]-vdata[5]);
+				sumz+= intersect;
+				addToSums(1,0,intersect);
 			}
 			if ( (vdata[6]-vdata[7]) && vdata[6]*vdata[7]<=0){	//sign switch from hi,hi,lo to hi,hi,hi
 				sumnum++;
 				sumx++;
 				sumy++;
-				sumz+= vdata[6]/(vdata[6]-vdata[7]);
+				intersect = vdata[6]/(vdata[6]-vdata[7]);
+				sumz+= intersect;
+				addToSums(1,1,intersect);
 			}
 			//switch along y
 			if ( (vdata[0]-vdata[2]) && vdata[0]*vdata[2]<=0){	//sign switch from lo,lo,lo to lo,hi,lo
 				sumnum++;
-				sumy+= vdata[0]/(vdata[0]-vdata[2]);
+				intersect = vdata[0]/(vdata[0]-vdata[2]);
+				sumy+= intersect;
+				addToSums(0,intersect,0);
 			}
 			if ( (vdata[1]-vdata[3]) && vdata[1]*vdata[3]<=0){	//sign switch from lo,lo,hi to lo,hi,hi
 				sumnum++;
 				sumz++;
-				sumy+= vdata[1]/(vdata[1]-vdata[3]);
+				intersect = vdata[1]/(vdata[1]-vdata[3]);
+				sumy+= intersect;
+				addToSums(0,intersect,1);
 			}
 			if ( (vdata[4]-vdata[6]) && vdata[4]*vdata[6]<=0){	//sign switch from hi,lo,lo to hi,hi,lo
 				sumnum++;
 				sumx++;
-				sumy+= vdata[4]/(vdata[4]-vdata[6]);
+				intersect =  vdata[4]/(vdata[4]-vdata[6]);
+				sumy+= intersect;
+				addToSums(1,intersect,0);
 			}
 			if ( (vdata[5]-vdata[7]) && vdata[5]*vdata[7]<=0){	//sign switch from hi,lo,hi to hi,hi,hi
 				sumnum++;
 				sumx++;
 				sumz++;
-				sumy+= vdata[5]/(vdata[5]-vdata[7]);
+				intersect =  vdata[5]/(vdata[5]-vdata[7]);
+				sumy+= intersect;
+				addToSums(1,intersect,1);
 			}
 			//switch along x
 			if ( (vdata[0]-vdata[4]) && vdata[0]*vdata[4]<0){	//sign switch from lo,lo,lo to hi,lo,lo
 				sumnum++;
-				sumx+= vdata[0]/(vdata[0]-vdata[4]);
+				intersect = vdata[0]/(vdata[0]-vdata[4]);
+				sumx+= intersect;
+				addToSums(intersect,0,0);
 			}
 			if ( (vdata[1]-vdata[5]) && vdata[1]*vdata[5]<0){	//sign switch from lo,lo,hi to hi,lo,hi
 				sumnum++;
 				sumz++;
-				sumx+= vdata[1]/(vdata[1]-vdata[5]);
+				intersect = vdata[1]/(vdata[1]-vdata[5]);
+				sumx+= intersect;
+				addToSums(intersect,0,1);
 			}
 			if ( (vdata[2]-vdata[6]) && vdata[2]*vdata[6]<0){	//sign switch from lo,hi,lo to hi,hi,lo
 				sumnum++;
 				sumy++;
-				sumx+= vdata[2]/(vdata[2]-vdata[6]);
+				intersect = vdata[2]/(vdata[2]-vdata[6]);
+				sumx+= intersect;
+				addToSums(intersect,1,0);
 			}
 			if ( (vdata[3]-vdata[7]) && vdata[3]*vdata[7]<0){	//sign switch from lo,lo,hi to hi,lo,hi
 				sumnum++;
 				sumy++;
 				sumz++;
-				sumx+= vdata[3]/(vdata[3]-vdata[7]);
+				intersect = vdata[3]/(vdata[3]-vdata[7]);
+				sumx+= intersect;
+				addToSums(intersect,1,1);
 			}
 			
-			//sumx, y,z should be 1 less? 0.5??
-			if (sumnum>0){	//AFAIK this should not happen
-				ii_lo+=sumx/sumnum;
-				jj_lo+=sumy/sumnum;
-				kk_lo+=sumz/sumnum;
+			//do matrix calculation using sums
+			//glmatrix library provides a function to invert a matrix. can't find a func to multiply a vector by a matrix though, but simple to write func
+				
+			mattoinvert[0]=sumnxx;	mattoinvert[1]=sumnxy;	mattoinvert[2]=sumnxz;	//since matrix is symmetric, can inversion be done more efficiently?
+			mattoinvert[3]=sumnxy;	mattoinvert[4]=sumnyy;	mattoinvert[5]=sumnyz;
+			mattoinvert[6]=sumnxz;	mattoinvert[7]=sumnyz;	mattoinvert[8]=sumnzz;
+			//mattoinvert = mat3.inverse(mattoinvert);
+			var invertedMatrix = mat3.create();
+			invertedMatrix = mat3.inverse(mattoinvert);
+			
+			//check for failed matrix inversion?
+			if (invertedMatrix == null){
+				console.log("null inverse matrix!!");
+				//console.log(mattoinvert);	//seems that has loads of NaNs in the matrix to invert...
 			}
 			
-			dcVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
+			//if (mattoinvert[0] == sumnxx){console.log("suspect inverse not working");}
+		//	myvec3[0] = sumnxxcx + sumnxycy + sumnyycy;
+		//	myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
+		//	myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz;
+			
+			myvec3[0] = sumnxxcx + sumnxycy + sumnxzcz;
+			myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
+			myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz;
+			
+			if (invertedMatrix != null){	//unknown why does this. 
+			//if (false){	//so can just see which verts are bad by color 
+				//multiply vector by matrix. which function does this??
+				mat3.multiplyVec3(invertedMatrix, myvec3);
+				
+				dcVertices.push((ii_lo+myvec3[0])/32, (jj_lo+myvec3[1])/32, (kk_lo+myvec3[2])/32);
+			}else{
+				//fall back to old way.
+				
+				//sumx, y,z should be 1 less? 0.5??
+				if (sumnum>0){	//AFAIK this should not happen
+					ii_lo+=sumx/sumnum;
+					jj_lo+=sumy/sumnum;
+					kk_lo+=sumz/sumnum;
+					
+					//shift consistent with new method? (TODO check, but expect requirement of fallback is due to a bug)
+					//ii_lo-=0.5;
+					//jj_lo-=0.5;
+					//kk_lo-=0.5;
+				}
+				//dcVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
+				dcVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
+			}
+			
+			if (invertedMatrix != null){	//unknown why does this. 
+				colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
+			}else{
+				colors.push(0, 1, 0);	//flag up bad points with a vertex colour.
+			}
+			
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
@@ -1325,6 +1478,9 @@ function init(){
 			indices:Array.prototype.concat.apply([],directionalIndices)
 		};
 	})();
+	
+	
+	console.log("sparse verts : " + voxData["sparse"].vertices.length );
 	
 	console.log("topFaceCount: " + topFaceCount);
 	
