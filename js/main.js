@@ -66,8 +66,13 @@ function initBuffers(){
 	loadBufferData(voxBuffers["stupid"], voxData["stupid"]);
 		
 	loadBufferData(voxBuffers["sparse"], { vertices:voxData["sparse"].vertices, indices:voxData["sparse"].indices, directionalIndices:voxData["sparse"].directionalIndices});	//copy all but normals!
+	/*
 	loadBufferData(voxBuffers["sparseSmoothed"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices});	//copy all but normals!
 	loadBufferData(voxBuffers["sparseWithNormals"], { vertices:voxData["sparse"].smoothVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].normals, colors:voxData["sparse"].colors});
+	*/
+	loadBufferData(voxBuffers["sparseSmoothed"], { vertices:voxData["sparse"].dcVertices, indices:voxData["sparse"].indices});	//copy all but normals!
+	loadBufferData(voxBuffers["sparseWithNormals"], { vertices:voxData["sparse"].dcVertices, indices:voxData["sparse"].indices, normals:voxData["sparse"].normals, colors:voxData["sparse"].colors});
+	
 	//note could share buffers for some of above - currently generate multiple buffers from the same data
 	
 	function bufferArrayData(buffer, arr, size){
@@ -710,8 +715,8 @@ function init(){
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinPlanetFunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(twistedTowerFunction);
 	
-	//seedValue= Math.random();
-	seedValue= 0.06941288120167277;	//interesting landscape with tunnels
+	seedValue= Math.random();
+	//seedValue= 0.06941288120167277;	//interesting landscape with tunnels
 	console.log("seed: " + seedValue);
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
@@ -997,6 +1002,7 @@ function init(){
 		//can only do part of 64x64x64 this way
 		var vertices = [];
 		var smoothVertices = [];
+		var dcVertices = [];
 		var normals = [];
 		var colors = [];
 		
@@ -1050,11 +1056,24 @@ function init(){
 		console.log(indexForGridPoint);
 		
 		function addVertData(ii,jj,kk){
+			
+			//info for dual contouring. TODO more efficient to put this with vertex creation, ie looking up voxdata[ii][jj][kk] etc...
+			var ii_lo = ii-1;
+			var jj_lo = jj-1;
+			var kk_lo = kk-1;
+			//TODO store evaluated function vals - already done this to determine whether each point is in/out
+			var vfunc = voxFunction;	//to make more readable
+			var vdata = [ vfunc(ii_lo,jj_lo,kk_lo), vfunc(ii_lo,jj_lo,kk), vfunc(ii_lo,jj,kk_lo), vfunc(ii_lo,jj,kk),
+						vfunc(ii,jj_lo,kk_lo), vfunc(ii,jj_lo,kk), vfunc(ii,jj,kk_lo), vfunc(ii,jj,kk)];
+						
+			
 			ii-=0.5;	//???
 			jj-=0.5;
 			kk-=0.5;
 			
 			vertices.push(ii/32, jj/32, kk/32);
+			
+			
 			//normals.push(0,0,0);
 				//^^ little faster for doing O(3) slow teapot thing
 
@@ -1085,6 +1104,8 @@ function init(){
 			}
 			
 			smoothVertices.push(ii/32, jj/32, kk/32);
+			
+			
 			var invLengthSq = 1/( totalGradSq + 0.001)
 			var invLength = Math.sqrt(invLengthSq);
 			var normal = [invLength*gradX, invLength*gradY, invLength*gradZ];
@@ -1120,6 +1141,107 @@ function init(){
 			
 			grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
 			colors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
+			
+			
+			
+			//"dual contouring" ? 
+			//AFAIK this is where find vertex positions by... find intersection of isosurface between neighbouring voxel centres of different polarity, for the 8 voxels around vertex position - 12 possible pairs. at these points, find surface normal. suppose that vertex position lies near to plane defined by this position and vertex. for gauss distribution about this point/plane, can multiply gaussian probabilities and find maximum/centre. equivalent to adding exponents. add some extra term to prefer points nerer centre of 8 nearby voxel centres (ie where vertex for simple minecraft style boxel would be).
+			//p = point (should find p that minimises this func)
+			//c = centre of given intersection point (plane centre)
+			//n = plane normal
+			//ie something like, minimise sum{( (p - c).n)^2 + const1*(p-c)*(p-c)} + const2*p*p (where origin at boxel vert pos)
+			//don't need both const1 and const2 to be nonzero
+			
+			//for working see paper (todo scan/write up)
+			// maximum where derivative is 0. for each component...
+			
+			//a step towards this - find each of 12 possible intersection points, average point and normals.
+			//TODO note - maybe by storing unperturbed points, can use sharp shading across sharp creases?
+			
+			//TODO intersection points can be calculated up to 4 times. should calculate once, reuse.
+			
+			var sumx=0;
+			var sumy=0;
+			var sumz=0;
+			//var sumnx=0;
+			//var sumny=0;
+			//var sumnz=0;
+			var sumnum=0;
+			//do sumx from lo,lo,lo point
+			//todo iterative root funding
+			//to calc normals (initially just check position finding
+			//switch along z
+			if (vdata[0]*vdata[1]<0){	//sign switch from lo,lo,lo to lo,lo,hi
+				sumnum++;
+				sumz+= vdata[0]/(vdata[0]-vdata[1]);
+			}
+			if (vdata[2]*vdata[3]<0){	//sign switch from lo,hi,lo to lo,hi,hi
+				sumnum++;
+				sumy++;
+				sumz+= vdata[2]/(vdata[2]-vdata[3]);
+			}
+			if (vdata[4]*vdata[5]<0){	//sign switch from hi,lo,lo to hi,lo,hi
+				sumnum++;
+				sumx++;
+				sumz+= vdata[4]/(vdata[4]-vdata[5]);
+			}
+			if (vdata[6]*vdata[7]<0){	//sign switch from hi,hi,lo to hi,hi,hi
+				sumnum++;
+				sumx++;
+				sumy++;
+				sumz+= vdata[6]/(vdata[6]-vdata[7]);
+			}
+			//switch along y
+			if (vdata[0]*vdata[2]<0){	//sign switch from lo,lo,lo to lo,hi,lo
+				sumnum++;
+				sumy+= vdata[0]/(vdata[0]-vdata[2]);
+			}
+			if (vdata[1]*vdata[3]<0){	//sign switch from lo,lo,hi to lo,hi,hi
+				sumnum++;
+				sumz++;
+				sumy+= vdata[1]/(vdata[1]-vdata[3]);
+			}
+			if (vdata[4]*vdata[6]<0){	//sign switch from hi,lo,lo to hi,hi,lo
+				sumnum++;
+				sumx++;
+				sumy+= vdata[4]/(vdata[4]-vdata[6]);
+			}
+			if (vdata[5]*vdata[7]<0){	//sign switch from hi,lo,hi to hi,hi,hi
+				sumnum++;
+				sumx++;
+				sumz++;
+				sumy+= vdata[5]/(vdata[5]-vdata[7]);
+			}
+			//switch along x
+			if (vdata[0]*vdata[4]<0){	//sign switch from lo,lo,lo to hi,lo,lo
+				sumnum++;
+				sumx+= vdata[0]/(vdata[0]-vdata[4]);
+			}
+			if (vdata[1]*vdata[5]<0){	//sign switch from lo,lo,hi to hi,lo,hi
+				sumnum++;
+				sumz++;
+				sumx+= vdata[1]/(vdata[1]-vdata[5]);
+			}
+			if (vdata[2]*vdata[6]<0){	//sign switch from lo,hi,lo to hi,hi,lo
+				sumnum++;
+				sumy++;
+				sumx+= vdata[2]/(vdata[2]-vdata[6]);
+			}
+			if (vdata[3]*vdata[7]<0){	//sign switch from lo,lo,hi to hi,lo,hi
+				sumnum++;
+				sumy++;
+				sumz++;
+				sumx+= vdata[3]/(vdata[3]-vdata[7]);
+			}
+			
+			//sumx, y,z should be 1 less? 0.5??
+			if (sumnum>0){	//AFAIK this should not happen
+				ii_lo+=sumx/sumnum;
+				jj_lo+=sumy/sumnum;
+				kk_lo+=sumz/sumnum;
+			}
+			
+			dcVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
 		}
 		function getNumberOfGridPoint(ii,jj,kk){
 			return ii*65*65 + jj*65 + kk;
@@ -1196,6 +1318,7 @@ function init(){
 		return {
 			vertices:vertices,
 			smoothVertices:smoothVertices,
+			dcVertices:dcVertices,
 			normals:normals,
 			colors:colors,
 			directionalIndices:directionalIndices,
