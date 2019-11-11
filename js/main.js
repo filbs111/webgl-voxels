@@ -714,7 +714,8 @@ function init(){
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
-	voxFunction = twistedTowerFunction;
+	//voxFunction = twistedTowerFunction;
+	voxFunction = roundedTwistedTowerFunction;
 	//voxFunction = donutFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
@@ -804,6 +805,19 @@ function init(){
 		//return 10 - Math.max(Math.abs(iir), Math.abs(jjr));
 		var circleDist = Math.sqrt( Math.pow(Math.max(Math.abs(iir)-10 , 0),2) + Math.pow( Math.max(Math.abs(jjr)-10 , 0),2) );
 		return circleDist>0? -circleDist : 10 - Math.max(Math.abs(iir), Math.abs(jjr));
+	}
+	function roundedTwistedTowerFunction(ii,jj,kk){
+		var iim,jjm,kkm;
+		iim = ii-blocksize/2;
+		jjm = jj-blocksize/2;
+		//kkm = kk-blocksize/2;
+		var ang = kk*Math.PI/64;
+		var iir = iim*Math.cos(ang)-jjm*Math.sin(ang);
+		var jjr = iim*Math.sin(ang)+jjm*Math.cos(ang);
+		//return 10 - Math.max(Math.abs(iir), Math.abs(jjr));
+		var circleDist = Math.sqrt( Math.pow(Math.max(Math.abs(iir)-10 , 0),2) + Math.pow( Math.max(Math.abs(jjr)-10 , 0),2) );
+		//return circleDist>0? -circleDist : 10 - Math.max(Math.abs(iir), Math.abs(jjr));
+		return circleDist>0? -circleDist+2 : 12 - Math.max(Math.abs(iir), Math.abs(jjr));
 	}
 	function donutFunction(ii,jj,kk){
 		var iim,jjm,kkm;
@@ -1172,7 +1186,7 @@ function init(){
 			var sumnyz=0;
 			var sumnzz=0;
 			
-			var centrebias = 0.01;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
+			var centrebias = 0.005;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
 			var sumnxx=centrebias;
 			var sumnyy=centrebias;
 			var sumnzz=centrebias;
