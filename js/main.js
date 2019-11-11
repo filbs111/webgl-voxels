@@ -714,8 +714,8 @@ function init(){
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
-	//voxFunction = twistedTowerFunction;
-	voxFunction = donutFunction;
+	voxFunction = twistedTowerFunction;
+	//voxFunction = donutFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(bigBallFunction);
@@ -1172,7 +1172,7 @@ function init(){
 			var sumnyz=0;
 			var sumnzz=0;
 			
-			var centrebias = 0.1;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
+			var centrebias = 0.01;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
 			var sumnxx=centrebias;
 			var sumnyy=centrebias;
 			var sumnzz=centrebias;
@@ -1254,9 +1254,12 @@ function init(){
 				sumnzzcz+=thisnorm[2]*thisnorm[2]*kk_fromcentre;
 			}
 			
+			var valAtIntersect;
+			
 			if ( (vdata[0]-vdata[1]) && vdata[0]*vdata[1]<=0){	//sign switch from lo,lo,lo to lo,lo,hi
 				sumnum++;
 				intersect = vdata[0]/(vdata[0]-vdata[1]);
+				intersect=modifyIntersect(intersect,ii_lo,jj_lo,kk_lo+intersect,0,1);
 				sumz+= intersect;
 				addToSums(0,0,intersect);
 			}
@@ -1264,6 +1267,7 @@ function init(){
 				sumnum++;
 				sumy++;
 				intersect = vdata[2]/(vdata[2]-vdata[3]);
+				intersect=modifyIntersect(intersect,ii_lo,jj_lo+1,kk_lo+intersect,2,3);
 				sumz+= intersect;
 				addToSums(0,1,intersect);
 			}
@@ -1271,6 +1275,7 @@ function init(){
 				sumnum++;
 				sumx++;
 				intersect = vdata[4]/(vdata[4]-vdata[5]);
+				intersect=modifyIntersect(intersect,ii_lo+1,jj_lo,kk_lo+intersect,4,5);
 				sumz+= intersect;
 				addToSums(1,0,intersect);
 			}
@@ -1279,6 +1284,7 @@ function init(){
 				sumx++;
 				sumy++;
 				intersect = vdata[6]/(vdata[6]-vdata[7]);
+				intersect=modifyIntersect(intersect,ii_lo+1,jj_lo+1,kk_lo+intersect,6,7);
 				sumz+= intersect;
 				addToSums(1,1,intersect);
 			}
@@ -1286,6 +1292,7 @@ function init(){
 			if ( (vdata[0]-vdata[2]) && vdata[0]*vdata[2]<=0){	//sign switch from lo,lo,lo to lo,hi,lo
 				sumnum++;
 				intersect = vdata[0]/(vdata[0]-vdata[2]);
+				intersect=modifyIntersect(intersect,ii_lo,jj_lo+intersect,kk_lo,0,2);
 				sumy+= intersect;
 				addToSums(0,intersect,0);
 			}
@@ -1293,6 +1300,7 @@ function init(){
 				sumnum++;
 				sumz++;
 				intersect = vdata[1]/(vdata[1]-vdata[3]);
+				intersect=modifyIntersect(intersect,ii_lo,jj_lo+intersect,kk_lo+1,1,3);
 				sumy+= intersect;
 				addToSums(0,intersect,1);
 			}
@@ -1300,6 +1308,7 @@ function init(){
 				sumnum++;
 				sumx++;
 				intersect =  vdata[4]/(vdata[4]-vdata[6]);
+				intersect=modifyIntersect(intersect,ii_lo+1,jj_lo+intersect,kk_lo,4,6);
 				sumy+= intersect;
 				addToSums(1,intersect,0);
 			}
@@ -1308,6 +1317,7 @@ function init(){
 				sumx++;
 				sumz++;
 				intersect =  vdata[5]/(vdata[5]-vdata[7]);
+				intersect=modifyIntersect(intersect,ii_lo+1,jj_lo+intersect,kk_lo+1,5,7);
 				sumy+= intersect;
 				addToSums(1,intersect,1);
 			}
@@ -1315,6 +1325,7 @@ function init(){
 			if ( (vdata[0]-vdata[4]) && vdata[0]*vdata[4]<0){	//sign switch from lo,lo,lo to hi,lo,lo
 				sumnum++;
 				intersect = vdata[0]/(vdata[0]-vdata[4]);
+				intersect=modifyIntersect(intersect,ii_lo+intersect,jj_lo,kk_lo,0,4);
 				sumx+= intersect;
 				addToSums(intersect,0,0);
 			}
@@ -1322,6 +1333,7 @@ function init(){
 				sumnum++;
 				sumz++;
 				intersect = vdata[1]/(vdata[1]-vdata[5]);
+				intersect=modifyIntersect(intersect,ii_lo+intersect,jj_lo,kk_lo+1,1,5);
 				sumx+= intersect;
 				addToSums(intersect,0,1);
 			}
@@ -1329,6 +1341,7 @@ function init(){
 				sumnum++;
 				sumy++;
 				intersect = vdata[2]/(vdata[2]-vdata[6]);
+				intersect=modifyIntersect(intersect,ii_lo+intersect,jj_lo+1,kk_lo,2,6);
 				sumx+= intersect;
 				addToSums(intersect,1,0);
 			}
@@ -1337,16 +1350,32 @@ function init(){
 				sumy++;
 				sumz++;
 				intersect = vdata[3]/(vdata[3]-vdata[7]);
+				intersect=modifyIntersect(intersect,ii_lo+intersect,jj_lo+1,kk_lo+1,3,7);
 				sumx+= intersect;
 				addToSums(intersect,1,1);
 			}
 			
+			function modifyIntersect(intersect,xx,yy,zz,idx_a,idx_b){	//try to smooth off artifacts along sharp edges. if not having any sharp edges, this is unnecessary perf drain
+				//return intersect;	//turn off
+				valAtIntersect = vfunc(xx,yy,zz);
+				if (valAtIntersect==0){return intersect;}
+				
+				if (valAtIntersect*vdata[idx_a]<0){
+					intersect*= vdata[idx_a]/(vdata[idx_a]-valAtIntersect);
+					if (isNaN(intersect)){console.log("intersect is nan - if!!");}
+				}else{
+					intersect=intersect+(1-intersect)*valAtIntersect/(valAtIntersect-vdata[idx_b]);
+				}
+				if (isNaN(intersect)){console.log("intersect is nan!!");}
+				return intersect;
+			}
+			
 			//do matrix calculation using sums
 			//glmatrix library provides a function to invert a matrix. can't find a func to multiply a vector by a matrix though, but simple to write func
-				
-			mattoinvert[0]=sumnxx;	mattoinvert[1]=sumnxy;	mattoinvert[2]=sumnxz;	//since matrix is symmetric, can inversion be done more efficiently?
-			mattoinvert[3]=sumnxy;	mattoinvert[4]=sumnyy;	mattoinvert[5]=sumnyz;
-			mattoinvert[6]=sumnxz;	mattoinvert[7]=sumnyz;	mattoinvert[8]=sumnzz;
+				centrebias=0;	//to stop adding here
+			mattoinvert[0]=sumnxx + centrebias*sumnum;	mattoinvert[1]=sumnxy;						mattoinvert[2]=sumnxz;	
+			mattoinvert[3]=sumnxy;						mattoinvert[4]=sumnyy + centrebias*sumnum;	mattoinvert[5]=sumnyz;
+			mattoinvert[6]=sumnxz;						mattoinvert[7]=sumnyz;						mattoinvert[8]=sumnzz + centrebias*sumnum;
 			
 			for (var cc=0;cc<9;cc++){
 				if (isNaN(mattoinvert[cc])){
@@ -1354,7 +1383,7 @@ function init(){
 				}
 			}
 			
-			mattoinvert = mat3.inverse(mattoinvert);
+			mattoinvert = mat3.inverse(mattoinvert);	//since matrix is symmetric, can inversion be done more efficiently?
 			
 			myvec3[0] = sumnxxcx + sumnxycy + sumnxzcz;
 			myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
