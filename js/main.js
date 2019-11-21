@@ -722,7 +722,7 @@ function init(){
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
-	voxFunction = twistedTowerFunction;
+	//voxFunction = twistedTowerFunction;
 	//voxFunction = roundedTwistedTowerFunction;
 	//voxFunction = donutFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
@@ -739,6 +739,7 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
+	voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -751,6 +752,10 @@ function init(){
 	function perlinfunction(ii,jj,kk){
 		//return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
 		return 10*noise.perlin3(ii/24,jj/12,kk/12) - 0.75*kk +20;	//landscape with 3d perlin surface
+	}
+	function perlinfunctionTwoSided(ii,jj,kk){
+		//return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
+		return 10*noise.perlin3(ii/24,jj/12,kk/12) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
 	}
 	function perlinPlanetFunction(ii,jj,kk){
 		var iim,jjm,kkm;
