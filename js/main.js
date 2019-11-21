@@ -722,8 +722,8 @@ function init(){
 	//voxFunction = bigCylinderFunction;
 	//voxFunction = curveCornerFunction;
 	//voxFunction = perlinPlanetFunction;
-	//voxFunction = twistedTowerFunction;
-	voxFunction = roundedTwistedTowerFunction;
+	voxFunction = twistedTowerFunction;
+	//voxFunction = roundedTwistedTowerFunction;
 	//voxFunction = donutFunction;
 	//voxFunction = bilinearFilterBinaryFunctionGen(sinesfunction);
 	//voxFunction = bilinearFilterBinaryFunctionGen(landscapeFunction);
@@ -1194,10 +1194,11 @@ function init(){
 			var sumnyz=0;
 			var sumnzz=0;
 			
-			var centrebias = 0.005;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
-			var sumnxx=centrebias;
-			var sumnyy=centrebias;
-			var sumnzz=centrebias;
+			var centrebias = 0.001;	//k2 from paper working. play with this value. guess should scale with number of points averaged.
+			var nk1 = 0.05;
+			var sumnxx=centrebias + nk1;
+			var sumnyy=centrebias + nk1;
+			var sumnzz=centrebias + nk1;
 			var sumnxy=0;
 			var sumnxz=0;
 			var sumnyz=0;
@@ -1407,9 +1408,9 @@ function init(){
 			
 			mattoinvert = mat3.inverse(mattoinvert);	//since matrix is symmetric, can inversion be done more efficiently?
 			
-			myvec3[0] = sumnxxcx + sumnxycy + sumnxzcz;
-			myvec3[1] = sumnxycx + sumnyycy + sumnyzcz;
-			myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz;
+			myvec3[0] = sumnxxcx + sumnxycy + sumnxzcz + nk1*(sumx/sumnum - 0.5);
+			myvec3[1] = sumnxycx + sumnyycy + sumnyzcz + nk1*(sumy/sumnum - 0.5);
+			myvec3[2] = sumnxzcx + sumnyzcy + sumnzzcz + nk1*(sumz/sumnum - 0.5);
 			
 			if (mattoinvert==null){console.log("null matrix!!!!");};	//else{console.log("matrix is not null");}
 			mat3.multiplyVec3(mattoinvert, myvec3);
