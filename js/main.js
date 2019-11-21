@@ -139,12 +139,18 @@ function initShaders(){
 					attributes:["aVertexPosition","aVertexNormal","aVertexColor"],
 					uniforms:["uMVMatrix","uPMatrix"]
 					});
+	
+	shaderPrograms.nmap = loadShader( "shader-nmap-vs", "shader-nmap-fs",{
+					attributes:["aVertexPosition","aVertexNormal","aVertexColor"],
+					uniforms:["uMVMatrix","uPMatrix"]
+					});	
 }
 
 var texture;
 function initTexture(){
 	//texture = makeTexture("img/4483-v7.jpg");
-	texture = makeTexture("img/cretish0958.png");
+	//texture = makeTexture("img/cretish0958.png");
+	texture = makeTexture("img/normal_mapping_normal_map.png");	//brick
 }
 function makeTexture(src) {	//to do OO
 	var texture = gl.createTexture();
@@ -221,8 +227,9 @@ var guiParams={
 	sparseWithNormals:false,	//TODO with/without color
 	sparseBasicAvgSmoothed:false,
 	sparseDCSmoothed:false,
-	sparseDCWithNormals:true,	//TODO with/without color
+	sparseDCWithNormals:false,	//TODO with/without color
 	textured:false,
+	normalMapped:true,
 	constrainToBox:false
 };
 
@@ -625,6 +632,7 @@ function init(){
 	gui.add(guiParams, "sparseDCSmoothed");
 	gui.add(guiParams, "sparseDCWithNormals");
 	gui.add(guiParams, "textured");
+	gui.add(guiParams, "normalMapped");
 	gui.add(guiParams, "constrainToBox");
 	
 	canvas=document.getElementById("glcanvas");
@@ -1812,6 +1820,14 @@ function drawScene(drawTime){
 	
 	if (guiParams.textured){
 		activeShaderProgram = shaderPrograms.texmap;
+		gl.useProgram(activeShaderProgram);
+		bind2dTextureIfRequired(texture);
+		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
+		drawObjectFromBuffers(voxBuffers["sparseDCWithNormals"], activeShaderProgram);
+	}
+	
+	if (guiParams.normalMapped){
+		activeShaderProgram = shaderPrograms.nmap;
 		gl.useProgram(activeShaderProgram);
 		bind2dTextureIfRequired(texture);
 		gl.uniform1i(activeShaderProgram.uniforms.uSampler, 0);
