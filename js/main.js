@@ -420,6 +420,12 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 		iif=Math.floor(ii);
 		jjf=Math.floor(jj);
 		kkf=Math.floor(kk);
+		
+		//avoid failure to run problem. TODO this properly
+		iif = Math.max(0,iif);
+		jjf = Math.max(0,jjf);
+		kkf = Math.max(0,kkf);
+		
 		//return myVoxData[iif][jjf][kkf];	//todo bilinear filter
 		
 		//remainder
@@ -430,6 +436,12 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 		//bilinear filter version (bit slower. could code dedicated gradient extraction more efficiently)
 		if (iif<63 && jjf<63 & kkf<63){
 			var sum=0;
+			/*
+			if (typeof myVoxData == 'undefined'){console.log("myVoxData undefined");}
+			if (typeof myVoxData[iif] == 'undefined'){console.log("myVoxData[" + iif + "] undefined");}
+			if (typeof myVoxData[iif][jjf] == 'undefined'){console.log("myVoxData[" + iif + "][" + jjf +"] undefined");}
+			if (typeof myVoxData[iif][jjf][kkf] == 'undefined'){console.log("myVoxData[" + iif + "][" + jjf +"][" + kkf + "] undefined");}
+			*/
 			sum+= myVoxData[iif][jjf][kkf]*(1-iir)*(1-jjr)*(1-kkr);
 			sum+= myVoxData[iif][jjf][kkf+1]*(1-iir)*(1-jjr)*kkr;
 			sum+= myVoxData[iif][jjf+1][kkf]*(1-iir)*jjr*(1-kkr);
@@ -739,12 +751,12 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	voxFunction = perlinfunctionTwoSided;
+	//voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
 	//var voxFunction = fromPolyModelFunction;
-	//var voxFunction = fromPolyModelFunctionFast;
+	var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);	
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
