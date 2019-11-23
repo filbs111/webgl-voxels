@@ -267,6 +267,8 @@ function loadBlenderExport(meshToLoad){
 	}	
 };
 
+var logLimiter =0;
+var globalAxisCollisionData;	//TODO less crappy way to return this.
 
 // do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
 var startGenFuncTime = Date.now();
@@ -297,7 +299,23 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	var faces = selectedData.faces;
 	var verts = selectedData.verts;
 	
+	//rotate teapot to aid debugging
+	console.log("will attempt to rotate vert data");
+	console.log(verts.length);
+	console.log(verts[0]);
+	var tmp;
+	var thisVert;
+	for (var vv=0;vv<verts.length;vv++){
+		thisVert = verts[vv];
+		tmp=thisVert[0];
+		thisVert[0] = (thisVert[0]+thisVert[2])*0.7;
+		thisVert[2] = (thisVert[2]-tmp)*0.7;
+		
+	}
+	
+	
 	//precalculate face normal data
+	/*
 	var facePlaneData=[];
 	for (var ff=0;ff<faces.length;ff++){
 		var thisTri = faces[ff];
@@ -313,10 +331,14 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 							gradX: -normVector[0]/normVector[2],	
 							gradY: -normVector[1]/normVector[2]});	//TODO check that gradients aren't /0
 	}
-	
+	*/
 	//pregenerate and store data.
 	//to use some assumptions used to generate smooth data, return bilinear smoothed data
 	var myVoxData = [];
+	var axisCollisionData={x:[],y:[],z:[]};	//data for collision point between grid points for some grid point to neighbouring point along given axis (where changes from voxel off/on)
+	
+	var myscale = 32;	//32 sort of works. other values don't. suppose because collisionPoints are *32 before returning
+	
 	for (var ii=0;ii<blocksize;ii++){
 		var slicedata = [];
 		myVoxData.push(slicedata);
@@ -324,12 +346,14 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 			var stripdata = [];
 			slicedata.push(stripdata);
 			//var collisionData = checkForCollisions([(ii-30)/31,(jj-16)/31,-1],[(ii-30)/31,(jj-16)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
-			var collisionData = checkForCollisions([(ii-30)/31,(jj-32)/31,-1],[(ii-30)/31,(jj-32)/31,1]);	//TODO rotate teapot 45 deg to fit into box better
+			var collisionData = checkForCollisions([(ii-32)/myscale,(jj-32)/myscale,-1],[(ii-32)/myscale,(jj-32)/myscale,1]);	//TODO rotate teapot 45 deg to fit into box better
 			collisionData.sort(function(a,b){return b.z-a.z;});	//sort collision data.
 			var zidx=0;
 			var nextCollision;
 			var fill=-1;
 			while (nextCollision = collisionData.pop()){
+				if (nextCollision.z<0){console.log("nextCollision.z<0 - " + nextCollision.z);}
+				axisCollisionData.z[ 64*64*ii + 64*jj + Math.floor(nextCollision.z) ] = nextCollision;	//could just keep nextCollision.z because x,y implied
 				while (zidx<nextCollision.z){
 					stripdata[zidx++]=fill;
 				}
@@ -338,12 +362,39 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 			while (zidx<blocksize){
 				stripdata[zidx++]=fill;
 			}
+			
+			//get collision data for x,y axes.
+			//todo include normal data to do "proper" dual contouring instead of simple average of points
+			collisionData = checkForCollisions([-1,(ii-32)/myscale,(jj-32)/myscale],[1,(ii-32)/myscale,(jj-32)/myscale]);
+			collisionData.sort(function(a,b){return b.x-a.x;});	//sort collision data.
+			while (nextCollision = collisionData.pop()){
+				if (nextCollision.x<0){console.log("nextCollision.x<0 - " + nextCollision.x);}
+				axisCollisionData.x[ 64*64*Math.floor(nextCollision.x) + 64*ii + jj ] = nextCollision;	//could just keep nextCollision.x because y,z implied
+			}
+			collisionData = checkForCollisions([(ii-32)/myscale,-1,(jj-32)/myscale],[(ii-32)/myscale,1,(jj-32)/myscale]);
+			collisionData.sort(function(a,b){return b.y-a.y;});	//sort collision data.
+			while (nextCollision = collisionData.pop()){
+				if (nextCollision.y<0){console.log("nextCollision.y<0 - " + nextCollision.y);}
+				axisCollisionData.y[ 64*64*ii + 64*Math.floor(nextCollision.y) + jj ] = nextCollision;	//could just keep nextCollision.y because x,z implied
+			}
 		}
 	}
 	console.log("myVoxData:");
 	console.log(myVoxData);
+	globalAxisCollisionData = axisCollisionData;
+	console.log("axisCollisionData:");
+	console.log(axisCollisionData);
 	
 	function checkForCollisions(raystart, rayend){
+
+		//move teapot to see whether problems move with it
+		//possibly should also shift output
+		/*
+		var indexToShift=1;
+		var amountToShift=1/64;
+		raystart[indexToShift]+=amountToShift;
+		rayend[indexToShift]+=amountToShift;
+	*/
 		var collisionPoints = [];
 		var rayVec=[ rayend[0]-raystart[0], rayend[1]-raystart[1], rayend[2]-raystart[2] ];
 	
@@ -356,21 +407,21 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 				var nextv = (vv+1) % 3;
 				var nextVert = verts[thisTri[nextv]];
 				
-				/*
+				
 				var displacement = [raystart[0]-thisVert[0],raystart[1]-thisVert[1],raystart[2]-thisVert[2]];
 				var edgevector = [nextVert[0]-thisVert[0],nextVert[1]-thisVert[1],nextVert[2]-thisVert[2]];
 				var crossProd = [ displacement[1]*edgevector[2] - displacement[2]*edgevector[1],
 									displacement[2]*edgevector[0] - displacement[0]*edgevector[2],
 									displacement[0]*edgevector[1] - displacement[1]*edgevector[0]];
 				var dotProd = crossProd[0]*rayVec[0] + crossProd[1]*rayVec[1] + crossProd[2]*rayVec[2];
-				*/
 				
+				/*
 				//simplify above given that rayVec x,y components =0
 				var displacement = [raystart[0]-thisVert[0],raystart[1]-thisVert[1]];
 				var edgevector = [nextVert[0]-thisVert[0],nextVert[1]-thisVert[1]];
 				var crossProdZ = displacement[0]*edgevector[1] - displacement[1]*edgevector[0];
 				var dotProd = crossProdZ*rayVec[2];
-				
+				*/
 				//signsSum+=dotProd/Math.abs(dotProd);
 				
 				//use vertex order for handedness. might still have issues with ray through vertex.
@@ -388,23 +439,54 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 				//looking for z for a line of fixed x,y
 				// equation of plane q-p dot N = 0
 				// -> qz-pz = (Nx*(qx-px) + Ny*(qy-py) ) / Nz
-				/*
+				
 				var triPoints = [verts[thisTri[0]], verts[thisTri[1]], verts[thisTri[2]]];
 				var edgeVecs = [[triPoints[1][0] - triPoints[0][0], triPoints[1][1] - triPoints[0][1], triPoints[1][2] - triPoints[0][2]],
 								[triPoints[2][0] - triPoints[0][0], triPoints[2][1] - triPoints[0][1], triPoints[2][2] - triPoints[0][2]]];
 				var normVector = [edgeVecs[1][1]*edgeVecs[0][2] - edgeVecs[1][2]*edgeVecs[0][1],
 									edgeVecs[1][2]*edgeVecs[0][0] - edgeVecs[1][0]*edgeVecs[0][2],
 									edgeVecs[1][0]*edgeVecs[0][1] - edgeVecs[1][1]*edgeVecs[0][0]];
-				var zCollisionPoint= triPoints[0][2] - ((normVector[0]*(raystart[0]-triPoints[0][0]) + normVector[1]*(raystart[1]-triPoints[0][1]))/normVector[2]);
-						// by calculation, - should be + above, presumably some mistake. 
-				*/
-				//precalc all this stuff once for each tri of object (rather than inside here every time collides with a ray). basically want x,y gradient and height at x,y=0 for each (non vertical) face.
+									
 				
-				var facePlaneDataPoint = facePlaneData[ff];
-				var zCollisionPoint= facePlaneDataPoint.centreZ + facePlaneDataPoint.gradX*raystart[0] + facePlaneDataPoint.gradY*raystart[1];
+				//copied code from collision test project
+				var vert0 = triPoints[0];
+				var displacement = [raystart[0]-vert0[0],raystart[1]-vert0[1],raystart[2]-vert0[2]];
+				var faceNormal = normVector;
+				var normSq = faceNormal[0]*faceNormal[0] + faceNormal[1]*faceNormal[1] + faceNormal[2]*faceNormal[2];
 				
-				collisionPoints.push({z:(zCollisionPoint+1)*32, fill:signsSum<0?-1:1});	//TODO check polarity
+				var const1 = 1000/normSq;	//a big number
+				
+				var dispDotNormTimesConst1 = const1 * ( displacement[0]*faceNormal[0]+ displacement[1]*faceNormal[1]+ displacement[2]*faceNormal[2] );
+				
+				var stretchedDisplacement = [ displacement[0] + dispDotNormTimesConst1*faceNormal[0],
+												displacement[1] + dispDotNormTimesConst1*faceNormal[1],
+												displacement[2] + dispDotNormTimesConst1*faceNormal[2]];
+				
+				var rayvecDotNormTimesConst1 = const1 * ( rayVec[0]*faceNormal[0]+ rayVec[1]*faceNormal[1]+ rayVec[2]*faceNormal[2] );
+				
+				var stretchedRayvec = [ rayVec[0] + rayvecDotNormTimesConst1*faceNormal[0],
+										rayVec[1] + rayvecDotNormTimesConst1*faceNormal[1],
+										rayVec[2] + rayvecDotNormTimesConst1*faceNormal[2]];
+				
+				var tt = ( stretchedDisplacement[0]*stretchedRayvec[0] + stretchedDisplacement[1]*stretchedRayvec[1] + stretchedDisplacement[2]*stretchedRayvec[2])/ ( stretchedRayvec[0]*stretchedRayvec[0] + stretchedRayvec[1]*stretchedRayvec[1] + stretchedRayvec[2]*stretchedRayvec[2]);
+				 
+				var colpoint = [ raystart[0] - tt*rayVec[0],
+								raystart[1] - tt*rayVec[1],
+								raystart[2] - tt*rayVec[2]];
+								
+									
+					
+				//collisionPoints.push({x:(colpoint[0]+1)*32, y:(colpoint[1]+1)*32, z:(colpoint[2]+1)*32, fill:signsSum<0?-1:1});	//TODO check polarity
+				collisionPoints.push({x:(colpoint[0]+1)*32, y:(colpoint[1]+1)*32, z:(colpoint[2]+1)*32, fill:signsSum<0?-1:1});	//TODO check polarity
+				
 			}
+		}
+		
+		if (collisionPoints.length>0 && logLimiter<10){
+			console.log("created collision data. length = " + collisionPoints.length );
+			console.log(collisionPoints);	//won't show in log because gets popped empty after returned from this func
+			console.log(collisionPoints[0]);
+			logLimiter++;
 		}
 		
 		//return some dummy data
@@ -413,18 +495,20 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	}
 	
 	return function(ii,jj,kk){
-		//ii+=0.5;	//??
-		//jj+=0.5;	//??
-		//kk+=0.5;	//??
+		//avoid failure to run problem. TODO this properly
+		ii = Math.max(0,ii);
+		jj = Math.max(0,jj);
+		kk = Math.max(0,kk);
+		
+		/*
+		ii+=0.5;	//??
+		jj+=0.5;	//??
+		kk+=0.5;	//??
+		*/
 		
 		iif=Math.floor(ii);
 		jjf=Math.floor(jj);
 		kkf=Math.floor(kk);
-		
-		//avoid failure to run problem. TODO this properly
-		iif = Math.max(0,iif);
-		jjf = Math.max(0,jjf);
-		kkf = Math.max(0,kkf);
 		
 		//return myVoxData[iif][jjf][kkf];	//todo bilinear filter
 		
@@ -758,7 +842,7 @@ function init(){
 	//var voxFunction = fromPolyModelFunction;
 	var voxFunction = fromPolyModelFunctionFast;
 	
-	makeVoxdataForFunc(voxFunction);	
+	makeVoxdataForFunc(voxFunction);
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
 	
 	function perlinfunction(ii,jj,kk){
@@ -1069,6 +1153,7 @@ function init(){
 		var colors = [];
 		var dcColors = [];
 		var delta = 0.01;
+		var badVertCount=0;
 		
 		//sparse version - no unused vertices.
 		var indexForGridPoint = [];
@@ -1130,10 +1215,10 @@ function init(){
 			var vdata = [ vfunc(ii_lo,jj_lo,kk_lo), vfunc(ii_lo,jj_lo,kk), vfunc(ii_lo,jj,kk_lo), vfunc(ii_lo,jj,kk),
 						vfunc(ii,jj_lo,kk_lo), vfunc(ii,jj_lo,kk), vfunc(ii,jj,kk_lo), vfunc(ii,jj,kk)];
 						
-			
 			ii-=0.5;	//???
 			jj-=0.5;
 			kk-=0.5;
+			
 			
 			vertices.push(ii/32, jj/32, kk/32);
 			
@@ -1440,13 +1525,83 @@ function init(){
 			var dcNorm = [sumnx/sumNorm, sumny/sumNorm, sumnz/sumNorm];
 			dcNormals.push( dcNorm[0], dcNorm[1], dcNorm[2]);
 			
+			/*
 			//basic average points method
 			if (sumnum>0){	//AFAIK this should not happen
 				ii_lo+=sumx/sumnum;
 				jj_lo+=sumy/sumnum;
 				kk_lo+=sumz/sumnum;
 			}
-			basicAvgVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
+			*/
+			var sums;
+			
+			//override basic average vertex if have intersection data from poly->vox (todo skip preceding code in this case)
+			if (typeof globalAxisCollisionData =="undefined"){
+				basicAvgVertices.push(ii_lo/32, jj_lo/32, kk_lo/32);
+			}else{
+				
+				var ii_adj = ii_lo+0;	//adjust to guess fix
+				var jj_adj = jj_lo+0;
+				var kk_adj = kk_lo+0;
+				
+				var idxToLookup = 64*64*ii_adj + 64*jj_adj + kk_adj;			//todo check out by ones
+				sums = {x:0,y:0,z:0,n:0};
+	
+				addCollisionData(globalAxisCollisionData.x[idxToLookup]);
+				addCollisionData(globalAxisCollisionData.x[idxToLookup + 64]);
+				addCollisionData(globalAxisCollisionData.x[idxToLookup + 1]);
+				addCollisionData(globalAxisCollisionData.x[idxToLookup + 64+1]);
+				
+				addCollisionData(globalAxisCollisionData.y[idxToLookup]);
+				addCollisionData(globalAxisCollisionData.y[idxToLookup + 64*64]);
+				addCollisionData(globalAxisCollisionData.y[idxToLookup + 1]);
+				addCollisionData(globalAxisCollisionData.y[idxToLookup + 64*64+1]);
+				
+				addCollisionData(globalAxisCollisionData.z[idxToLookup]);
+				addCollisionData(globalAxisCollisionData.z[idxToLookup + 64*64]);
+				addCollisionData(globalAxisCollisionData.z[idxToLookup + 64]);
+				addCollisionData(globalAxisCollisionData.z[idxToLookup + 64*64+64]);
+				
+				/*
+				//guess at correct?
+				addCollisionData(globalAxisCollisionData.x[idxToLookup]);
+				addCollisionData(globalAxisCollisionData.x[idxToLookup - 64]);
+				addCollisionData(globalAxisCollisionData.x[idxToLookup - 1]);
+				addCollisionData(globalAxisCollisionData.x[idxToLookup - 64+1]);
+				
+				addCollisionData(globalAxisCollisionData.y[idxToLookup]);
+				addCollisionData(globalAxisCollisionData.y[idxToLookup - 64*64]);
+				addCollisionData(globalAxisCollisionData.y[idxToLookup - 1]);
+				addCollisionData(globalAxisCollisionData.y[idxToLookup - 64*64+1]);
+				
+				
+				addCollisionData(globalAxisCollisionData.z[idxToLookup]);
+				addCollisionData(globalAxisCollisionData.z[idxToLookup - 64*64]);
+				addCollisionData(globalAxisCollisionData.z[idxToLookup - 64]);
+				addCollisionData(globalAxisCollisionData.z[idxToLookup - 64*64+64]);
+				*/
+				
+				if (sums.n ==0){
+					alert("sums.n = 0 !!");
+					//basicAvgVertices.push(0, 0, 0);	//THIS SHOULD NOT HAPPEN!!!
+					basicAvgVertices.push(1, 1, 1);	//THIS SHOULD NOT HAPPEN!!!
+					badVertCount++;
+				}
+				//console.log(sums);
+				//basicAvgVertices.push(sums.x/sums.n, sums.y/sums.n, sums.z/sums.n);
+				basicAvgVertices.push((sums.x/sums.n)/32, (sums.y/sums.n)/32, (sums.z/sums.n)/32);
+			}
+				//TODO move function outside loop!!!
+			function addCollisionData(cdata){
+				if (typeof cdata == "undefined"){return;}
+				sums.x+= cdata.x;
+				sums.y+= cdata.y;
+				sums.z+= cdata.z;
+				sums.n++;
+			}
+			
+			
+			
 			
 			//grayColor = grayColorForPointAndNormal(dcPos[0],dcPos[1],dcPos[2],dcNorm,1/sumNorm);	//wierd result since average normal is not the normal at this point! 
 			grayColor = grayColorForPointAndNormal(dcPos[0],dcPos[1],dcPos[2]);	//don't pass in normal info, calc inside function
@@ -1454,6 +1609,8 @@ function init(){
 			dcColors.push(grayColor, grayColor, grayColor);	//TODO separate surf color for directional lighting from ambient response
 		}
 
+		
+		
 		function grayColorForPointAndNormal(ii,jj,kk, normal, invLength){	//note can just calculate normal at point, but saves some calculation if already have it
 		
 			//guess
@@ -1577,6 +1734,8 @@ function init(){
 		console.log(directionalIndices[4].length);
 		console.log(directionalIndices[5].length);
 		
+		console.log("badVertCount: " + badVertCount);
+		
 		return {
 			vertices:vertices,
 			smoothVertices:smoothVertices,
@@ -1662,6 +1821,7 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg, startIdx, numIndice
 	
 	if (typeof startIdx == "undefined"){
 		gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+		//gl.drawElements(gl.LINES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
 	}else{
 		gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 2*startIdx);	//unsure where the 2 comes from!
 	}
