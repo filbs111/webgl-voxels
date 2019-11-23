@@ -815,6 +815,7 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
+	voxFunction = sinesfunctiontwo;
 	//voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
@@ -837,7 +838,7 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	voxFunction = perlinfunctionTwoSided;
+	//voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -871,6 +872,11 @@ function init(){
 		var sinscale=3;
 		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale) - (ii/20 - 0.5);
+	}
+	function sinesfunctiontwo(ii,jj,kk){
+		var sinscale=1.5;
+		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
+		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- kk/sinscale + 10;
 	}
 	function bigBallFunction(ii,jj,kk){
 		var iim,jjm,kkm;
@@ -1655,13 +1661,16 @@ function init(){
 			curveColor -= shiftGrad;
 			
 			//positive curvature doesn't increase lighting (unless saddle-like). TODO nonlinear shading(curve)
-			curveColor = Math.max(Math.atan(curveColor)*(2/Math.PI),0.0);
+			curveColor = Math.max(curveColor,0.0);
 			
 			//divide by steepness of scalar field func
 			curveColor*=invLength;
+			curveColor/=delta*delta;
 			
-			//grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
-			grayColor=0.5-curveColor/(delta*delta);	//using *= to retain perlin
+			curveColor = Math.max(Math.atan(curveColor)*(2/Math.PI),0.0);
+			
+			//grayColor*=0.5-curveColor;	//using *= to retain perlin
+			grayColor=0.5-curveColor;	//using *= to retain perlin
 			return grayColor;
 		}
 
