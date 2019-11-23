@@ -310,7 +310,7 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 		tmp=thisVert[0];
 		thisVert[0] = (thisVert[0]+thisVert[2])*0.7;
 		thisVert[2] = (thisVert[2]-tmp)*0.7;
-		
+		thisVert[1] -=0.1;	//this line (moving teapot vertically) magically fixes things (wacky dual contouring* on half of teapot. i know not why. (*just basic intersection point averaging currently)
 	}
 	
 	
@@ -366,13 +366,13 @@ var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 			//get collision data for x,y axes.
 			//todo include normal data to do "proper" dual contouring instead of simple average of points
 			collisionData = checkForCollisions([-1,(ii-32)/myscale,(jj-32)/myscale],[1,(ii-32)/myscale,(jj-32)/myscale]);
-			collisionData.sort(function(a,b){return b.x-a.x;});	//sort collision data.
+			//collisionData.sort(function(a,b){return b.x-a.x;});	//sort collision data.
 			while (nextCollision = collisionData.pop()){
 				if (nextCollision.x<0){console.log("nextCollision.x<0 - " + nextCollision.x);}
 				axisCollisionData.x[ 64*64*Math.floor(nextCollision.x) + 64*ii + jj ] = nextCollision;	//could just keep nextCollision.x because y,z implied
 			}
 			collisionData = checkForCollisions([(ii-32)/myscale,-1,(jj-32)/myscale],[(ii-32)/myscale,1,(jj-32)/myscale]);
-			collisionData.sort(function(a,b){return b.y-a.y;});	//sort collision data.
+			//collisionData.sort(function(a,b){return b.y-a.y;});	//sort collision data.
 			while (nextCollision = collisionData.pop()){
 				if (nextCollision.y<0){console.log("nextCollision.y<0 - " + nextCollision.y);}
 				axisCollisionData.y[ 64*64*ii + 64*Math.floor(nextCollision.y) + jj ] = nextCollision;	//could just keep nextCollision.y because x,z implied
