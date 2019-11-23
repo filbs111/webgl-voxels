@@ -838,7 +838,7 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	//voxFunction = perlinfunctionTwoSided;
+	voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -853,8 +853,8 @@ function init(){
 		return 10*noise.perlin3(ii/24,jj/12,kk/12) - 0.75*kk +20;	//landscape with 3d perlin surface
 	}
 	function perlinfunctionTwoSided(ii,jj,kk){
-		//return 10*noise.perlin3(ii/12,jj/12,kk/12);	//if divide by too small number, too many indices generated
-		return 10*noise.perlin3(ii/24,jj/12,kk/12) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
+		//return 10*noise.perlin3(ii/10,jj/10,kk/10) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
+		return 10*wrapPerlin(ii/8,jj/8,kk/8,64/8) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
 	}
 	function perlinPlanetFunction(ii,jj,kk){
 		var iim,jjm,kkm;
@@ -874,7 +874,7 @@ function init(){
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale) - (ii/20 - 0.5);
 	}
 	function sinesfunctiontwo(ii,jj,kk){
-		var sinscale=1.2;
+		var sinscale=4/Math.PI;
 		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- kk/sinscale + 10;
 	}
@@ -1632,7 +1632,7 @@ function init(){
 			var colorScale = 6;	//scale of noise (smaller = finer)
 			//var grayColor = 0.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	// mapt -1 to 1 -> 0 to 1
 			//var grayColor = 1.5+0.5*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);
-			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale);
+			var grayColor = 1+1*sumPerlin(ii/colorScale,jj/colorScale,kk/colorScale,1.8);
 			grayColor*=0.5;
 			//colors.push(grayColor, grayColor, grayColor);
 			//normals.push(0,0,0); 
@@ -1839,6 +1839,11 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg, startIdx, numIndice
 	}else{
 		gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 2*startIdx);	//unsure where the 2 comes from!
 	}
+	
+	mat4.translate(mvMatrix, [0,2,0]);
+	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	mat4.translate(mvMatrix, [0,-2,0]);
 }
 
 var currentTime=0;
@@ -2130,15 +2135,44 @@ function checkCollisionForVoxFunction(position, size){
 	return collisionPenetration>0;
 }
 
-function sumPerlin(ii,jj,kk){
+function sumPerlin(ii,jj,kk,amplscale){
 	//seems perlin lib doesn't have many options. want something with discernable texture over more length scales.
 	var total=0;
 	var colorScale=6;
 	var amplitude=1.5;
 	for (var iter=0;iter<10;iter++){
 		colorScale/=2;
-		amplitude/=1.8;	//TODO sum series to normalise sum of amplitudes
+		amplitude/=amplscale;	//TODO sum series to normalise sum of amplitudes
 		total+=amplitude*noise.perlin3(ii/colorScale,jj/colorScale,kk/colorScale);	//TODO consistent random offsets for levels (so doesn't spike at 0)
 	}
 	return total;
+}
+
+//seems like perlin library using does not wrap. TODO for cleanliness write own perlin (wrapping should be fairly easy) 
+//for now bodge averaging 8 samples
+function wrapPerlin(ii,jj,kk,wrapscale){
+	ii%=wrapscale;	//this doesn't handle negative values
+	jj%=wrapscale;
+	kk%=wrapscale;
+	
+	var ii_fract = ii/wrapscale;
+	var jj_fract = jj/wrapscale;
+	var kk_fract = kk/wrapscale;
+	
+	var ii_otherfract = 1-ii_fract;
+	var jj_otherfract = 1-jj_fract;
+	var kk_otherfract = 1-kk_fract;
+	
+	var sum=0;
+	
+	sum+=noise.perlin3(ii, jj, kk)* ii_fract*jj_fract*kk_fract;
+	sum+=noise.perlin3(ii, jj, kk+wrapscale)* ii_fract*jj_fract*kk_otherfract;
+	sum+=noise.perlin3(ii, jj+wrapscale, kk)* ii_fract*jj_otherfract*kk_fract;
+	sum+=noise.perlin3(ii, jj+wrapscale, kk+wrapscale)* ii_fract*jj_otherfract*kk_otherfract;
+	sum+=noise.perlin3(ii+wrapscale, jj, kk)* ii_otherfract*jj_fract*kk_fract;
+	sum+=noise.perlin3(ii+wrapscale, jj, kk+wrapscale)* ii_otherfract*jj_fract*kk_otherfract;
+	sum+=noise.perlin3(ii+wrapscale, jj+wrapscale, kk)* ii_otherfract*jj_otherfract*kk_fract;
+	sum+=noise.perlin3(ii+wrapscale, jj+wrapscale, kk+wrapscale)* ii_otherfract*jj_otherfract*kk_otherfract;
+	
+	return sum/8;	//not equivalent to wrapping perlin - generally result will be smaller.
 }
