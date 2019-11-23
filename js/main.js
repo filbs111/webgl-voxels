@@ -269,13 +269,15 @@ function loadBlenderExport(meshToLoad){
 
 var logLimiter =0;
 var globalAxisCollisionData;	//TODO less crappy way to return this.
+var skipPolyToVoxStuff=true;
 
 // do in n^2 checks if cast a series of parallel lines, assuming each starting from outside object. sort collisions, step through cells
 var startGenFuncTime = Date.now();
 var fromPolyModelFunctionFast = (function generateFromPolyModelFunctionFast(){
 	
-	var selectedData;
+	if (skipPolyToVoxStuff){return;}	//TODO less crap way to skip this
 	
+	var selectedData;
 	
 	var teapotColData={};	
 	var teapotObject = loadBlenderExport(teapotData);	//isn't actually a blender export - just a obj json
@@ -835,12 +837,12 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	//voxFunction = perlinfunctionTwoSided;
+	voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
 	//var voxFunction = fromPolyModelFunction;
-	var voxFunction = fromPolyModelFunctionFast;
+	//var voxFunction = fromPolyModelFunctionFast;
 	
 	makeVoxdataForFunc(voxFunction);
 	console.log("Time taken to generate: " + (Date.now()-genStartTime));
