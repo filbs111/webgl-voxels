@@ -874,7 +874,7 @@ function init(){
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale) - (ii/20 - 0.5);
 	}
 	function sinesfunctiontwo(ii,jj,kk){
-		var sinscale=1.5;
+		var sinscale=1.2;
 		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- kk/sinscale + 10;
 	}
@@ -1622,9 +1622,11 @@ function init(){
 		function grayColorForPointAndNormal(ii,jj,kk, normal, invLength){	//note can just calculate normal at point, but saves some calculation if already have it
 		
 			//guess
-			ii-=0.5;
-			jj-=0.5;
-			kk-=0.5;
+			var fudgeOffset = 1;	// 0.5? TODO work out correct value!
+			
+			ii+=fudgeOffset;
+			jj+=fudgeOffset;
+			kk+=fudgeOffset;
 		
 			//colors.push(Math.random(),Math.random(),Math.random());
 			var colorScale = 6;	//scale of noise (smaller = finer)
