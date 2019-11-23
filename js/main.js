@@ -1655,12 +1655,13 @@ function init(){
 			curveColor -= shiftGrad;
 			
 			//positive curvature doesn't increase lighting (unless saddle-like). TODO nonlinear shading(curve)
-			curveColor = Math.max(curveColor,0.0);
+			curveColor = Math.max(Math.atan(curveColor)*(2/Math.PI),0.0);
 			
 			//divide by steepness of scalar field func
 			curveColor*=invLength;
 			
-			grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
+			//grayColor*=0.5-curveColor/(delta*delta);	//using *= to retain perlin
+			grayColor=0.5-curveColor/(delta*delta);	//using *= to retain perlin
 			return grayColor;
 		}
 
