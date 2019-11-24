@@ -816,6 +816,7 @@ function init(){
 	
 	//voxFunction = sinesfunction;
 	//voxFunction = sinesfunctiontwo;
+	voxFunction = sinesfunctionthree;
 	//voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
@@ -838,7 +839,7 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	voxFunction = perlinfunctionTwoSided;
+	//voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -854,7 +855,7 @@ function init(){
 	}
 	function perlinfunctionTwoSided(ii,jj,kk){
 		//return 10*noise.perlin3(ii/10,jj/10,kk/10) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
-		return 10*wrapPerlin(ii/8,jj/8,kk/8,64/8) - 0.002*(kk-32)*(kk-32);	//landscape with 3d perlin surface
+		return 10*wrapPerlin(ii/12,jj/12,kk/12,64/12) +0.2 - 0.002*(kk-32)*(kk-32);	//landscape with 3d perlin surface
 	}
 	function perlinPlanetFunction(ii,jj,kk){
 		var iim,jjm,kkm;
@@ -877,6 +878,11 @@ function init(){
 		var sinscale=4/Math.PI;
 		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- kk/sinscale + 10;
+	}
+	function sinesfunctionthree(ii,jj,kk){
+		var sinscale=4/Math.PI;
+		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
+		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- 0.1*(kk-32)*(kk-32) + 1;
 	}
 	function bigBallFunction(ii,jj,kk){
 		var iim,jjm,kkm;
