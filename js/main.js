@@ -838,7 +838,7 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	voxFunction = perlinfunctionTwoSided;
+	//voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -854,7 +854,7 @@ function init(){
 	}
 	function perlinfunctionTwoSided(ii,jj,kk){
 		//return 10*noise.perlin3(ii/10,jj/10,kk/10) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
-		return 10*wrapPerlin(ii/8,jj/8,kk/8,64/8) - 0.02*(kk-32)*(kk-32);	//landscape with 3d perlin surface
+		return 10*wrapPerlin(ii/8,jj/8,kk/8,64/8) - 0.002*(kk-32)*(kk-32);	//landscape with 3d perlin surface
 	}
 	function perlinPlanetFunction(ii,jj,kk){
 		var iim,jjm,kkm;
@@ -1622,7 +1622,7 @@ function init(){
 		function grayColorForPointAndNormal(ii,jj,kk, normal, invLength){	//note can just calculate normal at point, but saves some calculation if already have it
 		
 			//guess
-			var fudgeOffset = 1;	// 0.5? TODO work out correct value!
+			var fudgeOffset = 0.5;	//TODO work out correct value!
 			
 			ii+=fudgeOffset;
 			jj+=fudgeOffset;
@@ -1840,10 +1840,17 @@ function drawObjectFromPreppedBuffers(bufferObj, shaderProg, startIdx, numIndice
 		gl.drawElements(gl.TRIANGLES, numIndices, gl.UNSIGNED_SHORT, 2*startIdx);	//unsure where the 2 comes from!
 	}
 	
+	//make a 2x2 grid
 	mat4.translate(mvMatrix, [0,2,0]);
 	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
 	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
-	mat4.translate(mvMatrix, [0,-2,0]);
+	mat4.translate(mvMatrix, [2,-2,0]);
+	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	mat4.translate(mvMatrix, [0,2,0]);
+	gl.uniformMatrix4fv(shaderProg.uniforms.uMVMatrix, false, mvMatrix);
+	gl.drawElements(gl.TRIANGLES, bufferObj.vertexIndexBuffer.numItems, gl.UNSIGNED_SHORT, 0);
+	mat4.translate(mvMatrix, [-2,-2,0]);
 }
 
 var currentTime=0;
