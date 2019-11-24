@@ -1173,29 +1173,29 @@ function init(){
 				for (var kk=0;kk<=64;kk++){
 					numNeighbours=1;
 					occNeighbours=0;
-					if (ii>0 && ii<64){numNeighbours*=2;};
-					if (jj>0 && jj<64){numNeighbours*=2;};
-					if (kk>0 && kk<64){numNeighbours*=2;};
+					if (ii>0){numNeighbours*=2;};
+					if (jj>0){numNeighbours*=2;};
+					if (kk>0){numNeighbours*=2;};
 					
-					if (ii<64 && jj<64 && kk<64 && voxdata[ii][jj][kk]){
+					if (voxdata[ii%64][jj%64][kk%64]){
 						occNeighbours++;
 					}
-					if (ii<64 && jj<64 && kk>0 && voxdata[ii][jj][kk-1]){
+					if (kk>0 && voxdata[ii%64][jj%64][kk-1]){
 						occNeighbours++;
 					}
-					if (ii<64 && jj>0 && kk<64 && voxdata[ii][jj-1][kk]){
+					if (jj>0 && voxdata[ii%64][jj-1][kk%64]){
 						occNeighbours++;
 					}
-					if (ii<64 && jj>0 && kk>0 && voxdata[ii][jj-1][kk-1]){
+					if (jj>0 && kk>0 && voxdata[ii%64][jj-1][kk-1]){
 						occNeighbours++;
 					}
-					if (ii>0 && jj<64 && kk<64 && voxdata[ii-1][jj][kk]){
+					if (ii>0 && voxdata[ii-1][jj%64][kk%64]){
 						occNeighbours++;
 					}
-					if (ii>0 && jj<64 && kk>0 && voxdata[ii-1][jj][kk-1]){
+					if (ii>0 && kk>0 && voxdata[ii-1][jj%64][kk-1]){
 						occNeighbours++;
 					}
-					if (ii>0 && jj>0 && kk<64 && voxdata[ii-1][jj-1][kk]){
+					if (ii>0 && jj>0 && voxdata[ii-1][jj-1][kk%64]){
 						occNeighbours++;
 					}
 					if (ii>0 && jj>0 && kk>0 && voxdata[ii-1][jj-1][kk-1]){
@@ -1687,8 +1687,8 @@ function init(){
 		var directionalIndices = [[],[],[],[],[],[]];
 		for (var ii=0;ii<64;ii++){
 			for (var jj=0;jj<64;jj++){
-				for (var kk=0;kk<63;kk++){
-					var difference=voxdata[ii][jj][kk+1]-voxdata[ii][jj][kk];
+				for (var kk=0;kk<64;kk++){
+					var difference=voxdata[ii][jj][(kk+1)%64]-voxdata[ii][jj][kk];
 					if (difference!=0){
 						oneVertIdx = getNumberOfGridPoint(ii,jj,kk+1);
 						if ( difference>0 ){
@@ -1705,9 +1705,9 @@ function init(){
 		}
 		
 		for (var ii=0;ii<64;ii++){
-			for (var jj=0;jj<63;jj++){
+			for (var jj=0;jj<64;jj++){
 				for (var kk=0;kk<64;kk++){
-					var difference=voxdata[ii][jj+1][kk]-voxdata[ii][jj][kk];
+					var difference=voxdata[ii][(jj+1)%64][kk]-voxdata[ii][jj][kk];
 					if (difference!=0){
 						oneVertIdx = getNumberOfGridPoint(ii,jj+1,kk);
 						if ( difference<0 ){
@@ -1722,10 +1722,10 @@ function init(){
 			}
 		}
 		
-		for (var ii=0;ii<63;ii++){
+		for (var ii=0;ii<64;ii++){
 			for (var jj=0;jj<64;jj++){
 				for (var kk=0;kk<64;kk++){
-					var difference=voxdata[ii+1][jj][kk]-voxdata[ii][jj][kk];
+					var difference=voxdata[(ii+1)%64][jj][kk]-voxdata[ii][jj][kk];
 					if ( difference!=0 ){
 						oneVertIdx = getNumberOfGridPoint(ii+1,jj,kk);					
 						if ( difference>0 ){
