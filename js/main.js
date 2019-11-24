@@ -815,7 +815,7 @@ function init(){
 	}
 	
 	//voxFunction = sinesfunction;
-	voxFunction = sinesfunctiontwo;
+	//voxFunction = sinesfunctiontwo;
 	//voxFunction = landscapeFunction;
 	//voxFunction = bigBallFunction;
 	//voxFunction = bigCylinderFunction;
@@ -838,7 +838,7 @@ function init(){
 	var genStartTime = Date.now();
 	noise.seed(seedValue);
 	//voxFunction = perlinfunction;
-	//voxFunction = perlinfunctionTwoSided;
+	voxFunction = perlinfunctionTwoSided;
 	//voxFunction = bilinearFilterBinaryFunctionGen(perlinfunction);
 	
 	
@@ -2158,7 +2158,12 @@ function sumPerlin(ii,jj,kk,amplscale){
 //seems like perlin library using does not wrap. TODO for cleanliness write own perlin (wrapping should be fairly easy) 
 //for now bodge averaging 8 samples
 function wrapPerlin(ii,jj,kk,wrapscale){
-	ii%=wrapscale;	//this doesn't handle negative values
+	//fudge to handle some -ve values
+	ii+=wrapscale;
+	jj+=wrapscale;
+	kk+=wrapscale;
+	
+	ii%=wrapscale;
 	jj%=wrapscale;
 	kk%=wrapscale;
 	
