@@ -880,6 +880,9 @@ function init(){
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- kk/sinscale + 10;
 	}
 	function sinesfunctionthree(ii,jj,kk){
+		ii%=64;
+		jj%=64;
+		kk%=64;
 		var sinscale=4/Math.PI;
 		//return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)+Math.sin(kk/sinscale);
 		return Math.sin(ii/sinscale)+Math.sin(jj/sinscale)- 0.1*(kk-32)*(kk-32) + 1;
